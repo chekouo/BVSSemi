@@ -1,0 +1,11 @@
+Package: BVSSemi
+Type: Package
+Title: BVSSemi: A Bayesian variable selection for semicontinuous response
+Version: 1.0
+Date: 2023-06-20
+Author: Thierry Chekouo
+Maintainer: Thierry Chekouo <tchekouo@umn.edu>
+Description: The BVSSemi package implements an MCMC algorithm for a Bayesian variable selection for semicontinuous response. The models use a two-part model approach and propose to link the models via MRF priors. 
+License: GPL (>= 2.0)
+Imports: truncnorm, gear, invgamma
+Encoding: UTF-8
