@@ -1,7 +1,7 @@
 # BVSSemi
 
 
- This is the BiclustBHMM package
+ This is the BVSSemi package
 
  License: GPL
 
