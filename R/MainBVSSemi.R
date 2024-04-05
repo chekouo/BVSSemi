@@ -21,7 +21,7 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
   p=ncol(X)
 
   aa=asigma
-  bb=bsigma
+  ba=bsigma
   #aa=ba=0.001
 
   #####
