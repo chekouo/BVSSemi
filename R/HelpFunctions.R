@@ -128,7 +128,7 @@ Sigma2=function(n,uSu,aa,ba){
 ### Sample Gamma
 ## prior proba
 SampleGamma=function(Gamma,y, X,Xcov,pc, sigma2,tau2,Bigtau2,theta,Gamma2,nu){
-  
+  GammaOutput=Gamma
   if (!is.null(Xcov)){
     Xcov=as.matrix(Xcov,nrow=length(y),ncol=pc)
   }
@@ -147,27 +147,28 @@ SampleGamma=function(Gamma,y, X,Xcov,pc, sigma2,tau2,Bigtau2,theta,Gamma2,nu){
   logratio=loglikNew+logprior_new-(loglikOld+logprior_old)
   u2=runif(1,0,1)
   if (log(u2)<logratio){
-    Gamma=GammaNew
+    GammaOutput=GammaNew
     uSu=loglikNewF$uSu
     betaMean=loglikNewF$betaMean
     cholMat=loglikNewF$cholMat
   }
   beta=rep(0,p+pc+1)
-  wh=which(Gamma==1)
-  pp=sum(Gamma==1)
+  wh=which(GammaOutput==1)
+  pp=sum(GammaOutput==1)
   UU=rnorm(pp+pc+1)
   Bet=betaMean +sqrt(sigma2)*backsolve(cholMat,UU)
   beta[1:(1+pc)]=Bet[1:(1+pc)]
   if (pp>=1){
     beta[wh+1+pc]=Bet[(2+pc):(pp+1+pc)]
   }
-  return (list(Gamma=Gamma,uSu=uSu,beta=beta))
+  return (list(Gamma=GammaOutput,uSu=uSu,beta=beta))
 }
 
 ## sample theta
 
 SampleTheta=function(theta, nu1,nu2,Gamma1,Gamma2,alpha1,beta1,varpropo=1){
   p=length(Gamma1)
+  thetaOutput=theta
   NormaCost=1+exp(nu1+nu2+theta)+exp(nu1)+exp(nu2)
   logEX=theta*sum(Gamma1*Gamma2)-p*log(NormaCost)
   alphanew=theta^2/varpropo;betanew=theta/varpropo
@@ -179,11 +180,11 @@ SampleTheta=function(theta, nu1,nu2,Gamma1,Gamma2,alpha1,beta1,varpropo=1){
   acceptTheta=0;
   #print(paste("Alphanew=",alphanew));print(paste("Betanew=",betanew))
   if (log(u3)<logratio){
-    theta=thetaProp
+    thetaOutput=thetaProp
     #    print("acceptTheta")
     acceptTheta=1;
   }
-  return (list(theta=theta,accept=acceptTheta))
+  return (list(theta=thetaOutput,accept=acceptTheta))
 }
 
 
