@@ -24,7 +24,6 @@ SampleGammaCombProb=function(N2,Gamma,U,Y, X,Xcov,tau2,Bigtau2,nu,sigma2){
   beta=rep(0,p+pc+1)
   logEX=nu
   GammaNew=proposalGam(Gamma)
-  #  GammaNew=Gamma2
   sumX=sum(log(1+exp(logEX)))
   logprior_old=sum(Gamma*logEX)-sumX
   logprior_new=sum(GammaNew*logEX)-sumX
@@ -111,17 +110,11 @@ loglik=function(y, X,Xcov, gamma, sigma2,tau2,Bigtau2){
   #######
   CholMat=chol(Mat)
   logdet=sum(log(diag(CholMat)^2))
-  # betaMean=solve(Mat,t(u))
   betaMean = solve_chol(CholMat, t(u))
-  #print(mean(betaMean-betaMean1))
-  #betaMean=chol2inv(CholMat)%*%t(u)#solve(Mat,t(u))
   uSu=sum(y^2)-u%*%betaMean
   
   
   #######
-  
-  #print("BetaReg=")
-  #   print(solve(Mat,t(u)))
   loglik1=-(0.5/(sigma2))*(uSu)-0.5*logdet-0.5*n*log(sigma2)-0.5*(pc+1)*log(Bigtau2)-0.5*(p-pc-1)*log(tau2)-0.5*n*log(2*pi)
   return(list(logl=loglik1,uSu=uSu,betaMean=betaMean,cholMat=CholMat))
 }
@@ -139,21 +132,13 @@ SampleGamma=function(Gamma,y, X,Xcov,pc, sigma2,tau2,Bigtau2,theta,Gamma2,nu){
   if (!is.null(Xcov)){
     Xcov=as.matrix(Xcov,nrow=length(y),ncol=pc)
   }
-  
   p=length(Gamma)
   logEX=nu+theta*Gamma2
   GammaNew=proposalGam(Gamma)
-  #  GammaNew=Gamma
   logprior_old=sum(Gamma*logEX)#-sum(log(1+exp(logEX)))
   logprior_new=sum(GammaNew*logEX)#-sum(log(1+exp(logEX)))
   loglikOldF=loglik(y, X,Xcov, Gamma, sigma2,tau2,Bigtau2)
   loglikOld=loglikOldF$logl
-  #XX=cbind(rep(1,length(y)),Xcov,X[,Gamma==1])
-  #loggg=dmvnorm(y,mean=rep(0,length(y)),sigma=sigma2*XX%*%diag(c(rep(Bigtau2,1+pc),rep(tau2,sum(Gamma==1))))%*%t(XX)+sigma2*diag(length(y)),log=T,checkSymmetry=TRUE)
-  
-  #print(paste("N=",length(y)))
-  #print(paste("difflogll=",loggg-loglikOld))
-  
   uSu=loglikOldF$uSu;
   betaMean=loglikOldF$betaMean
   cholMat=loglikOldF$cholMat;
