@@ -82,15 +82,16 @@ proposalGam=function(gamma){
 
 loglik=function(y=y, X=X,Xcov=Xcov, gamma=gamma, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2){
   n=length(y)
+  Xcov1=Xcov
   if (is.null(Xcov)){
     pc=0
   } else if (is.vector(Xcov)){
     pc=1;nn=length(Xcov)
-    Xcov=matrix(Xcov,nn,1)
+    Xcov1=matrix(Xcov,nn,1)
   } else {
     pc=ncol(Xcov)
   }
-  XX=cbind(rep(1,n),Xcov,X[,gamma==1])
+  XX=cbind(rep(1,n),Xcov1,X[,gamma==1])
   p=sum(gamma==1)+pc+1
   u=t(y)%*%XX
   if (p==1){
@@ -126,20 +127,21 @@ Sigma2=function(n,uSu,aa,ba){
 SampleGamma=function(Gamma=Gamma,y=y, X=X,Xcov=Xcov,pc=pc, sigma2=sigma2,tau2=tau2,
                      Bigtau2=Bigtau2,theta=theta,Gamma2=Gamma2,nu=nu){
   GammaOutput=Gamma
+  Xcov1=Xcov
   if (!is.null(Xcov)){
-    Xcov=as.matrix(Xcov,nrow=length(y),ncol=pc)
+    Xcov1=as.matrix(Xcov,nrow=length(y),ncol=pc)
   }
   p=length(Gamma)
   logEX=nu+theta*Gamma2
   GammaNew=proposalGam(Gamma)
   logprior_old=sum(Gamma*logEX)#-sum(log(1+exp(logEX)))
   logprior_new=sum(GammaNew*logEX)#-sum(log(1+exp(logEX)))
-  loglikOldF=loglik(y=y, X=X,Xcov=Xcov, gamma=Gamma, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2)
+  loglikOldF=loglik(y=y, X=X,Xcov=Xcov1, gamma=Gamma, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2)
   loglikOld=loglikOldF$logl
   uSu=loglikOldF$uSu;
   betaMean=loglikOldF$betaMean
   cholMat=loglikOldF$cholMat;
-  loglikNewF=loglik(y=y, X=X,Xcov=Xcov, gamma=GammaNew, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2)
+  loglikNewF=loglik(y=y, X=X,Xcov=Xcov1, gamma=GammaNew, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2)
   loglikNew=loglikNewF$logl
   logratio=loglikNew+logprior_new-(loglikOld+logprior_old)
   u2=runif(1,0,1)
