@@ -3,8 +3,7 @@ library(truncnorm)
 
 library(gear)
 
-YLatent2 = function(Yobs, X,Xcov, GAMMA,betaR, tau,Bigtau) {
-  gamma = which(GAMMA == 1)
+YLatent2 = function(Yobs, X,Xcov,betaR, tau,Bigtau) {
   n=nrow(X)
   ll = rep(0, n)
   ll[Yobs!=0] = -Inf
