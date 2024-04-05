@@ -75,7 +75,7 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
       sigma2Sample[s-(burnin)]=sigma2
     }
     
-      U=YLatent2 (Y, X, Xcov,Gamma2,beta, tau22,Bigtau2);
+      U=YLatent2 (Y, X, Xcov,beta, tau22,Bigtau2);
     
     if (s%%(NN/5)==1){
       print(paste("Number of mcmc Sample is =",s))
