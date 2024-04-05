@@ -54,17 +54,17 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
   for (s in 1:NN){
     if ((Method=="BVSSemiIndep")||(Method=="BVSSemiMRF")){
       ### Sample Gamma1
-      Gamma1F=SampleGamma(Gamma1,y2, X[N2,],Xcov[N2,],pc, sigma2,tau2=tau21,Bigtau2,theta,Gamma2,nu1)
+      Gamma1F=SampleGamma(Gamma=Gamma1,y=y2, X=X[N2,],Xcov=Xcov[N2,],pc=pc, sigma2=sigma2,tau2=tau21,Bigtau2=Bigtau2,theta=theta,Gamma2=Gamma2,nu=nu1)
       Gamma1=Gamma1F$Gamma
       ### Sample sigma2
       sigma2=Sigma2(NR,Gamma1F$uSu,aa,ba)
         ### Sample Gamma2 binary model
-      # Gamma2F=SampleGamma(Gamma2,U, X,Xcov,pc,sigma2=1,tau2=tau22,Bigtau2,theta,Gamma1,nu2)
+      # Gamma2F=SampleGamma(Gamma=Gamma2,y=U, X=X,Xcov=Xcov,pc=pc,sigma2=1,tau2=tau22,Bigtau2=Bigtau2,theta=theta,Gamma2=Gamma1,nu=nu2)
       # Gamma2=Gamma2F$Gamma
       # beta=Gamma2F$beta
       
     } else if (Method=="BVSSemiComb") {
-      GammaF=SampleGammaCombProb(N2,Gamma1,U,Y, X,Xcov,tau2=tau21,Bigtau2,nu1,sigma2)
+      GammaF=SampleGammaCombProb(N2=N2,Gamma=Gamma1,U=U,Y=Y, X=X,Xcov=Xcov,tau2=tau21,Bigtau2=Bigtau2,nu=nu1,sigma2=sigma2)
       beta=GammaF$beta
       Gamma1=GammaF$Gamma
       ### Sample sigma2
