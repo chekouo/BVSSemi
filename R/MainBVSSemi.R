@@ -56,7 +56,7 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
       ### Sample sigma2
       sigma2=Sigma2(NR,Gamma1F$uSu,aa,ba)
         ### Sample Gamma2 binary model
-        Gamma2F=SampleGamma(Gamma2,U, X,Xcov,pc,1,tau2=tau22,Bigtau2,theta,Gamma1,nu2)
+        Gamma2F=SampleGamma(Gamma2,U, X,Xcov,pc,sigma2=1,tau2=tau22,Bigtau2,theta,Gamma1,nu2)
         Gamma2=Gamma2F$Gamma
         beta=Gamma2F$beta
       
