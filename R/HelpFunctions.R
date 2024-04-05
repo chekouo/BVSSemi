@@ -80,7 +80,7 @@ proposalGam=function(gamma){
 }
 
 
-loglik=function(y, X,Xcov, gamma, sigma2,tau2,Bigtau2){
+loglik=function(y=y, X=X,Xcov=Xcov, gamma=gamma, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2){
   n=length(y)
   if (is.null(Xcov)){
     pc=0
@@ -102,10 +102,6 @@ loglik=function(y, X,Xcov, gamma, sigma2,tau2,Bigtau2){
     Mat=diag(c(rep(1/Bigtau2,1+pc),rep(1/tau2,p-pc-1)))+t(XX)%*%XX
   }
   
-  #print(paste("PC=",pc))
-  #print(dim(XX))
-  #print(p)
-  #print(t(XX)%*%XX+diag(c(rep(1/Bigtau2,1+pc),rep(1/tau2,p-pc-1))))
   
   #######
   CholMat=chol(Mat)
@@ -127,7 +123,8 @@ Sigma2=function(n,uSu,aa,ba){
 
 ### Sample Gamma
 ## prior proba
-SampleGamma=function(Gamma,y, X,Xcov,pc, sigma2,tau2,Bigtau2,theta,Gamma2,nu){
+SampleGamma=function(Gamma=Gamma,y=y, X=X,Xcov=Xcov,pc=pc, sigma2=sigma2,tau2=tau2,
+                     Bigtau2=Bigtau2,theta=theta,Gamma2=Gamma2,nu=nu){
   GammaOutput=Gamma
   if (!is.null(Xcov)){
     Xcov=as.matrix(Xcov,nrow=length(y),ncol=pc)
@@ -137,12 +134,12 @@ SampleGamma=function(Gamma,y, X,Xcov,pc, sigma2,tau2,Bigtau2,theta,Gamma2,nu){
   GammaNew=proposalGam(Gamma)
   logprior_old=sum(Gamma*logEX)#-sum(log(1+exp(logEX)))
   logprior_new=sum(GammaNew*logEX)#-sum(log(1+exp(logEX)))
-  loglikOldF=loglik(y, X,Xcov, Gamma, sigma2,tau2,Bigtau2)
+  loglikOldF=loglik(y=y, X=X,Xcov=Xcov, gamma=Gamma, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2)
   loglikOld=loglikOldF$logl
   uSu=loglikOldF$uSu;
   betaMean=loglikOldF$betaMean
   cholMat=loglikOldF$cholMat;
-  loglikNewF=loglik(y, X, Xcov, GammaNew, sigma2,tau2,Bigtau2)
+  loglikNewF=loglik(y=y, X=X,Xcov=Xcov, gamma=GammaNew, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2)
   loglikNew=loglikNewF$logl
   logratio=loglikNew+logprior_new-(loglikOld+logprior_old)
   u2=runif(1,0,1)
@@ -166,7 +163,7 @@ SampleGamma=function(Gamma,y, X,Xcov,pc, sigma2,tau2,Bigtau2,theta,Gamma2,nu){
 
 ## sample theta
 
-SampleTheta=function(theta, nu1,nu2,Gamma1,Gamma2,alpha1,beta1,varpropo=1){
+SampleTheta=function(theta=theta, nu1=nu1,nu2=nu2,Gamma1=Gamma1,Gamma2=Gamma2,alpha1=alpha1,beta1=beta1,varpropo=1){
   p=length(Gamma1)
   thetaOutput=theta
   NormaCost=1+exp(nu1+nu2+theta)+exp(nu1)+exp(nu2)
@@ -178,10 +175,8 @@ SampleTheta=function(theta, nu1,nu2,Gamma1,Gamma2,alpha1,beta1,varpropo=1){
   logratio=logEXnew+dgamma(thetaProp,shape=alpha1,rate=beta1,log = T)+dgamma(theta,shape=thetaProp^2/varpropo,rate=thetaProp/varpropo,log = T)-logEX-dgamma(theta,shape=alpha1,rate=beta1,log = T)-dgamma(thetaProp,alphanew,rate=betanew,log = T)
   u3=runif(1,0,1)
   acceptTheta=0;
-  #print(paste("Alphanew=",alphanew));print(paste("Betanew=",betanew))
   if (log(u3)<logratio){
     thetaOutput=thetaProp
-    #    print("acceptTheta")
     acceptTheta=1;
   }
   return (list(theta=thetaOutput,accept=acceptTheta))
