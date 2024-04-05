@@ -31,7 +31,11 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
   Gamma1=rbinom(p,size=1,prob = 1/(1+exp(-nu1))) ### Regression model
   Gamma2=rbinom(p,size=1,prob = 1/(1+exp(-nu2)))# Binary model
   sigma2=.1;
-  theta=.5
+   if (Method=="BVSSemiMRF"){
+      theta=.5;
+  } else {
+  theta=0
+     }
   beta=rep(0,p+pc+1)
     U=rep(0,n)
     U[Y!=0]=-abs(rnorm(sum(Y!=0)))
@@ -43,13 +47,12 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
   #betaSample=matrix(0,NN-burnin,p+pc+1);
   thetasample=rep(0,NN-burnin);sigma2Sample=rep(0,NN-burnin);
   
-  if (Method!="BVSSemiMRF"){
-    theta=0;
-  }
+ 
   
   NR=length(N2)
+  
   for (s in 1:NN){
-    if (Method!="BVSSemiComb"){
+    if ((Method=="BVSSemiIndep")||(Method=="BVSSemiMRF")){
       ### Sample Gamma1
       Gamma1F=SampleGamma(Gamma1,y2, X[N2,],Xcov[N2,],pc, sigma2,tau2=tau21,Bigtau2,theta,Gamma2,nu1)
       Gamma1=Gamma1F$Gamma
@@ -60,7 +63,7 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
         Gamma2=Gamma2F$Gamma
         beta=Gamma2F$beta
       
-    } else {
+    } else if (Method=="BVSSemiComb") {
       GammaF=SampleGammaCombProb(N2,Gamma1,U,Y, X,Xcov,tau2=tau21,Bigtau2,nu1,sigma2)
       beta=GammaF$beta
       Gamma1=GammaF$Gamma
