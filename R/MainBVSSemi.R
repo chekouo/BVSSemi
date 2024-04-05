@@ -1,6 +1,7 @@
 #methods=BVSSemiMRF, BVSSemiIndep, BVSSemiComb
 MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,btheta=1,tau2cont=1,
-                      tau2bin=0.5,nu1cont=-3,nu2bin=-3,varpropTheta=.25,Bigtau2=100,mcmcsample=10000,burnin=5000){
+                      tau2bin=0.5,nu1cont=-3,nu2bin=-3,varpropTheta=.25,Bigtau2=100,asigma=.1,bsigma=.1,
+                      mcmcsample=10000,burnin=5000){
   tau21=tau2cont;tau22=tau2bin
   nu1=nu1cont;nu2=nu2bin
   set.seed(seed)
@@ -18,8 +19,10 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
   }
   X=as.matrix(X)
   p=ncol(X)
-  
-  aa=ba=0.001
+
+  aa=asigma
+  bb=bsigma
+  #aa=ba=0.001
 
   #####
   alpha1=atheta;beta1=btheta;
