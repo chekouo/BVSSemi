@@ -5,7 +5,12 @@
 	An MCMC algorithm to perform a Bayesian variable selection for a semicontinuous response via a two-part model: continous model (i.e. linear model with continuous response) and binary model (Probit model with binary response). 
 }
 \description{
-The algorithm is implemented on the three methods: i) BVSSemiMRF: this method encourages the common selection of important features between the two models (continuous and binary model).  ii) BVSSemiComb: this method selects the same set of features associated for both the continuous and binary models such that each selected feature is related to our semicontinuous response (both zeros and positive values) and iii) BVSSemiIndep: it  assumes that the set of selected features for the log-linear model is not necessarily the same with the logistic model, and the two models are fitted independently.  The algorithm computes mainly the marginal posterior probabilities of inclusion of each feature  for each model.  
+The algorithm is implemented on the three methods: 
+i) BVSSemiMRF: this method encourages the common selection of important features between the two models (continuous and binary model).  
+ii) BVSSemiComb: this method selects the same set of features associated for both the continuous and binary 
+  models such that each selected feature is related to our semicontinuous response (both zeros and positive values) and 
+iii) BVSSemiIndep: it  assumes that the set of selected features for the log-linear model is not necessarily the same 
+with the logistic model, and the two models are fitted independently.  The algorithm computes mainly the marginal posterior probabilities of inclusion of each feature  for each model.  
 }
 
 \usage{
