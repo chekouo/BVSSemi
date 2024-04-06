@@ -56,12 +56,14 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
       ### Sample Gamma1
       Gamma1F=SampleGamma(GammaM1=Gamma1,y=y2, X=X[N2,],Xcov=Xcov[N2,],pc=pc, sigma2=sigma2,tau2=tau21,Bigtau2=Bigtau2,theta=theta,GammaM2=Gamma2,nu=nu1)
       Gamma1=Gamma1F$GammaM1
+      print(paste("NU1=",nu1))
       ### Sample sigma2
       sigma2=Sigma2(NR,Gamma1F$uSu,aa,ba)
         ### Sample Gamma2 binary model
        Gamma2F=SampleGamma(GammaM1=Gamma2,y=U, X=X,Xcov=Xcov,pc=pc,sigma2=1,tau2=tau22,Bigtau2=Bigtau2,theta=theta,GammaM2=Gamma1,nu=nu2)
        Gamma2=Gamma2F$GammaM1
        beta=Gamma2F$beta
+       print(paste("NU2=",nu2))
     } else if (Method=="BVSSemiComb") {
       GammaF=SampleGammaCombProb(N2=N2,Gamma=Gamma1,U=U,Y=Y, X=X,Xcov=Xcov,tau2=tau21,Bigtau2=Bigtau2,nu=nu1,sigma2=sigma2)
       beta=GammaF$beta
