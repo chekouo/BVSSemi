@@ -124,19 +124,19 @@ Sigma2=function(n,uSu,aa,ba){
 
 ### Sample Gamma
 ## prior proba
-SampleGamma=function(Gamma=Gamma,y=y, X=X,Xcov=Xcov,pc=pc, sigma2=sigma2,tau2=tau2,
-                     Bigtau2=Bigtau2,theta=theta,Gamma2=Gamma2,nu=nu){
-  GammaOutput=Gamma
+SampleGamma=function(GammaM1=GammaM1,y=y, X=X,Xcov=Xcov,pc=pc, sigma2=sigma2,tau2=tau2,
+                     Bigtau2=Bigtau2,theta=theta,GammaM2=GammaM2,nu=nu){
+  GammaOutput=GammaM1
   Xcov1=Xcov
   if (!is.null(Xcov)){
     Xcov1=as.matrix(Xcov,nrow=length(y),ncol=pc)
   }
-  p=length(Gamma)
-  logEX=nu+theta*Gamma2
-  GammaNew=proposalGam(Gamma)
-  logprior_old=sum(Gamma*logEX)#-sum(log(1+exp(logEX)))
+  p=length(GammaM1)
+  logEX=nu+theta*GammaM2
+  GammaNew=proposalGam(GammaM1)
+  logprior_old=sum(GammaM1*logEX)#-sum(log(1+exp(logEX)))
   logprior_new=sum(GammaNew*logEX)#-sum(log(1+exp(logEX)))
-  loglikOldF=loglik(y=y, X=X,Xcov=Xcov1, gamma=Gamma, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2)
+  loglikOldF=loglik(y=y, X=X,Xcov=Xcov1, gamma=GammaM1, sigma2=sigma2,tau2=tau2,Bigtau2=Bigtau2)
   loglikOld=loglikOldF$logl
   uSu=loglikOldF$uSu;
   betaMean=loglikOldF$betaMean
@@ -160,7 +160,7 @@ SampleGamma=function(Gamma=Gamma,y=y, X=X,Xcov=Xcov,pc=pc, sigma2=sigma2,tau2=ta
   if (pp>=1){
     beta[wh+1+pc]=Bet[(2+pc):(pp+1+pc)]
   }
-  return (list(Gamma=GammaOutput,uSu=uSu,beta=beta))
+  return (list(GammaM1=GammaOutput,uSu=uSu,beta=beta))
 }
 
 ## sample theta
