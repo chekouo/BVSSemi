@@ -52,7 +52,7 @@ MainBVSSemi<-function(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,bthe
   NR=length(N2)
   
   for (s in 1:NN){
-    set.seed(s)
+    #set.seed(s)
     if ((Method=="BVSSemiIndep")||(Method=="BVSSemiMRF")){
       ### Sample Gamma1
       Gamma1F=SampleGamma(GammaM1=Gamma1,y=y2, X=X[N2,],Xcov=Xcov[N2,],pc=pc, sigma2=sigma2,tau2=tau21,Bigtau2=Bigtau2,theta=theta,GammaM2=Gamma2,nu=nu1)
