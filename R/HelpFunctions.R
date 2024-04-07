@@ -119,9 +119,9 @@ loglik=function(y=y, X=X,Xcov=Xcov, gamma=gamma, sigma2=sigma2,tau2=tau2,Bigtau2
 ### sample from sigma2
 
 Sigma2=function(n,uSu,aa,ba){
-  #return(1/rgamma(1,shape=.5*n+aa,rate=0.5*uSu+ba))
+  return(1/rgamma(1,shape=.5*n+aa,rate=0.5*uSu+ba))
   #return (1/rltrgamma(n=1, shape=.5*n+aa, rate=0.5*uSu+ba,trunc=2/3))
-  return (1)
+  #return (1)
 }
 
 ### Sample Gamma
