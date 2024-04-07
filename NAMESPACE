@@ -2,6 +2,7 @@ importFrom("stats", "dgamma", "rbinom", "rgamma", "runif","rnorm")
 import(truncnorm)
 import(invgamma)
 import(gear)
+import("IMIFA")
 export(MainBVSSemi)
 export(GenDataSemiContinous)
 
