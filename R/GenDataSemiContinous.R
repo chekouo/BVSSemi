@@ -21,9 +21,10 @@ GenDataSemiContinous<-function(Xreal=FALSE,n=n,p=p,X=NULL,sd=1,impf=20,beta=1,
     Y[N2]=X[N2,1:impf]%*%c(rep(beta,impf))+error
     Gamma1[1:impf]=1
   }
+  halffeat=floor(impf/2)
   if (percentOverlap=="Medium"){
-    Y[N2]=X[N2,1:(impf/2)]%*%c(rep(beta,impf/2))+X[N2,(1+impf):(impf+impf/2)]%*%c(rep(beta,impf/2))+error
-    Gamma1[1:(impf/2)]=1;Gamma1[(1+impf):(impf+impf/2)]=1
+    Y[N2]=X[N2,1:(halffeat)]%*%c(rep(beta,halffeat))+X[N2,(1+impf):(impf+impf-halffeat)]%*%c(rep(beta,impf-halffeat))+error
+    Gamma1[1:halffeat]=1;Gamma1[(1+impf):(impf+impf-halffeat)]=1
   }
   if (percentOverlap=="NoOverlap"){
     Y[N2]=X[N2,(1+impf):(2*impf)]%*%c(rep(beta,impf))+error
