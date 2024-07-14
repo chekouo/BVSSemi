@@ -1,8 +1,10 @@
 importFrom("stats", "dgamma", "rbinom", "rgamma", "runif","rnorm")
+useDynLib(BVSSemi)
 import(truncnorm)
 import(invgamma)
 import(gear)
 import("IMIFA")
 export(MainBVSSemi)
 export(GenDataSemiContinous)
+
 

@@ -14,7 +14,7 @@ with the logistic model, and the two models are fitted independently.  The algor
 }
 
 \usage{
-MainBVSSemi(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,btheta=1,tau2cont=1,
+MainBVSSemi(Method="BVSSemiMRF",LocalPrior = FALSE,Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,btheta=1,tau2cont=1,
                       tau2bin=0.5,nu1cont=-3,nu2bin=-3,varpropTheta=.25,Bigtau2=100,asigma=.1,bsigma=.1,
                       mcmcsample=10000,burnin=5000)
 }
@@ -22,6 +22,9 @@ MainBVSSemi(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,btheta=1,tau2c
 \arguments{
 	\item{Method}{ It's one of the three methods: "BVSSemiMRF","BVSSemiComb" or "BVSSemiIndep". The default value is "BVSSemiMRF".
 	}
+	\item{LocalPrior}{ if LocalPrior is TRUE, then the spike in the prior of beta for the continuous model is normal. Otherwise, it's a nonlocal prior (pMOM).
+	}
+
 		\item{Y}{ A semicontinuous response.   
 	}
 	\item{X}{ A matrix of features  of dimension \eqn{n\times p}}
@@ -29,7 +32,7 @@ MainBVSSemi(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,btheta=1,tau2c
 	\item{seed}{ Set a seed number to generate distributions in the MCMC algorithm.}
 	\item{atheta}{ It's the shape (hyper)parameter of the gamma prior distribution of theta from the BVSSemiMRF method. The parameter theta measures the borrows strength between the two model and encourages the common selection between the two models.}
 		\item{btheta}{ It's the scale (hyper)parameter of the gamma prior distribution of theta from the BVSSemiMRF method.}
-		\item{tau2cont}{ It's the variance (hyper)parameter of the normal prior distribution of regression effects on the continuous model}
+		\item{tau2cont}{ It's the variance (hyper)parameter of the normal prior distribution of regression effects on the continuous model. When LocalPrior = FALSE, it's the parameter that controls the variance of beta.}
 		\item{tau2bin}{ It's the variance (hyper)parameter of the normal prior distribution of regression effects on the binary model}
 		\item{nu1cont}{ log-odds of prior prob. of feature inclusion in the continuous model}
 			\item{nu2bin}{ log-odds of prior prob. of feature inclusion in the binary model}
@@ -52,7 +55,7 @@ MainBVSSemi(Method="BVSSemiMRF",Y=Y,X=X,Xcov=NULL,seed=1,atheta=1,btheta=1,tau2c
 \item{prob.Z.Bin}{ Marginal posterior probabilities of each feauture in the binary model.}
 \item{thetasample}{ Posterior samples of theta from the BVSSemiMRF method. }
 \item{AcceptanceRateTheta}{ MCMC Acceptance rate of theta from the BVSSemiMRF.}
-\item{sigma2Sample}{ Posterior samples of the variance sigma2 from the continous model. }
+\item{sigma2Sample}{ Posterior samples of the variance sigma2 from the continous model. Note that when LocalPrior is FALSE, then it's NULL as we integrate out sigma2.}
 
 }
 
@@ -67,9 +70,13 @@ Samuel Babatunde, Tolulope Sajobi and Thierry Chekouo (2023), \emph{A Bayesian V
 \examples{
 
 library(BVSSemi);
-Dat=GenDataSemiContinous(n=500,p=200,sd=1,impf=20,beta=0.3,percentOverlap="Full",seed=1)
+Dat=GenDataSemiContinous(n=500,p=500,sd=1,impf=20,beta=.3,percentOverlap="Full",seed=1)
 str(Dat)
-result<-MainBVSSemi(Method="BVSSemiMRF",Y=Dat$Y,X=Dat$X,Xcov=NULL,seed=1,atheta=1,btheta=1,tau2cont=1,tau2bin=1,nu1cont=-4,nu2bin=-4,varpropTheta=.25,Bigtau2=100,mcmcsample=50000,burnin=10000);
+
+#result<-MainBVSSemi(Method="BVSSemiMRF",Y=Dat$Y,X=Dat$X,Xcov=NULL,seed=1,atheta=1,btheta=1,tau2cont=1,tau2bin=1,nu1cont=-4,
+#nu2bin=-4,varpropTheta=.25,Bigtau2=100,mcmcsample=5000,burnin=1000)
+result<-MainBVSSemi(Method="BVSSemiIndep",LocalPrior = FALSE,Y=Dat$Y,X=Dat$X,Xcov=rnorm(500),seed=1,atheta=1,btheta=1,tau2cont=0.05,tau2bin=1,nu1cont=-4,
+nu2bin=-4,varpropTheta=.25,Bigtau2=100,mcmcsample=40000,burnin=1000)
 str(result)
 library(pROC)
 AUC1=as.numeric(auc(roc(as.factor(Dat$Z.cont),result$prob.Z.Cont)))
