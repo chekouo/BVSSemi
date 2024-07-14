@@ -73,9 +73,7 @@ library(BVSSemi);
 Dat=GenDataSemiContinous(n=500,p=500,sd=1,impf=20,beta=.3,percentOverlap="Full",seed=1)
 str(Dat)
 
-#result<-MainBVSSemi(Method="BVSSemiMRF",Y=Dat$Y,X=Dat$X,Xcov=NULL,seed=1,atheta=1,btheta=1,tau2cont=1,tau2bin=1,nu1cont=-4,
-#nu2bin=-4,varpropTheta=.25,Bigtau2=100,mcmcsample=5000,burnin=1000)
-result<-MainBVSSemi(Method="BVSSemiIndep",LocalPrior = FALSE,Y=Dat$Y,X=Dat$X,Xcov=rnorm(500),seed=1,atheta=1,btheta=1,tau2cont=0.05,tau2bin=1,nu1cont=-4,
+result<-MainBVSSemi(Method="BVSSemiMRF",LocalPrior = FALSE,Y=Dat$Y,X=Dat$X,seed=1,atheta=1,btheta=1,tau2cont=0.05,tau2bin=1,nu1cont=-4,
 nu2bin=-4,varpropTheta=.25,Bigtau2=100,mcmcsample=40000,burnin=1000)
 str(result)
 library(pROC)
