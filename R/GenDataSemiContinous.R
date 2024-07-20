@@ -8,7 +8,7 @@ GenDataSemiContinous <- function(Xreal = FALSE, n = n, p = p, X = NULL, sd = 1, 
   Gamma2[1:impf] <- 1 ## binary model
   if (Xreal == T) {
     if (is.null(X)) {
-      stop("Provide the matrice of the set of features")
+      stop("Provide the matrix of the set of features")
     }
   } else {
     X <- matrix(rnorm(n * p), n, p)
