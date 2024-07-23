@@ -71,8 +71,8 @@ proposalGam <- function(gamma) {
     prop[l] <- 1 - gamma[l]
   } else { ## Swap
     id2 <- setdiff(1:p, id1)
-    l1 <- sample(id1, 1);
-    l2 <- sample(id2, 1);
+    l1 <- sample(id1, 1)
+    l2 <- sample(id2, 1)
     prop[l1] <- 0
     prop[l2] <- 1
   }
