@@ -9,7 +9,7 @@ MainBVSSemi <- function(
   nu2 <- nu2bin
   set.seed(seed)
   n <- length(Y)
-  N2 <- which(Y != 0)
+  N2 <- which(Y != 0);
   y2 <- Y[N2]
   if (is.null(Xcov)) {
     pc <- 0
