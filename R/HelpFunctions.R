@@ -71,8 +71,8 @@ proposalGam <- function(gamma) {
     prop[l] <- 1 - gamma[l]
   } else { ## Swap
     id2 <- setdiff(1:p, id1)
-    l1 <- sample.int(length(id1), 1)
-    l2 <- sample.int(length(id2), 1)
+    l1 <- sample(id1, 1)
+    l2 <- sample(id2, 1)
     prop[l1] <- 0
     prop[l2] <- 1
   }
@@ -267,6 +267,7 @@ SampleGammaLinear <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc =
    # print(loglikNew)
   }
   logratio <- loglikNew + logprior_new - (loglikOld + logprior_old)
+
   u2 <- runif(1, 0, 1)
   if (log(u2) < logratio) {
     GammaOutput <- GammaNew
