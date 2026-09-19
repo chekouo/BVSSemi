@@ -1,6 +1,7 @@
-library(truncnorm)
-
-library(gear)
+#' @importFrom stats rnorm rbinom rgamma dgamma runif pnorm cor sd quantile
+#' @importFrom truncnorm rtruncnorm
+#' @importFrom gear solve_chol
+NULL
 
 YLatent2 <- function(Yobs, X, Xcov, betaR) {
   n <- nrow(X)
@@ -9,18 +10,16 @@ YLatent2 <- function(Yobs, X, Xcov, betaR) {
   uu <- rep(0, n)
   uu[Yobs == 0] <- Inf
   Xb <- cbind(rep(1, n), Xcov, X) %*% betaR
-  Ys <- sapply(1:n, function(x) rtruncnorm(1, a = ll[x], b = uu[x], mean = Xb[x], sd = 1))
+  Ys <- rtruncnorm(n, a = ll, b = uu, mean = as.vector(Xb), sd = 1)
   return(Ys)
 }
 
 SampleGammaCombProb <- function(N2, Gamma, U, Y, X, Xcov, tau2, Bigtau2, nu, sigma2) {
-  p <- length(Gamma)
   if (is.null(Xcov)) {
     pc <- 0
   } else {
     pc <- ncol(Xcov)
   }
-  beta <- rep(0, p + pc + 1)
   logEX <- nu
   GammaNew <- proposalGam(Gamma)
   sumX <- sum(log(1 + exp(logEX)))
@@ -29,58 +28,84 @@ SampleGammaCombProb <- function(N2, Gamma, U, Y, X, Xcov, tau2, Bigtau2, nu, sig
   loglikOldF <- loglik(U, X, Xcov, Gamma, 1, tau2, Bigtau2)
   loglikOld <- loglikOldF$logl
   cholMat <- loglikOldF$cholMat
-  betaMean <- loglikOldF$betaMean
-  loglikOldFR <- loglik(Y[N2], X[N2, ], Xcov[N2, ], Gamma, sigma2, tau2, Bigtau2)
+  
+  betaMeanBin <- loglikOldF$betaMean
+  loglikOldFR <- loglik(Y[N2], X[N2, , drop = FALSE], Xcov[N2, , drop = FALSE], Gamma, sigma2, tau2, Bigtau2)
+  cholMatCont <- loglikOldFR$cholMat
+  betaMeanCont <- loglikOldFR$betaMean
   loglikOld <- loglikOld + loglikOldFR$logl
   uSu <- loglikOldFR$uSu
   loglikNewF <- loglik(U, X, Xcov, GammaNew, 1, tau2, Bigtau2)
-  # loglikNewF=loglikLogit(Y1, X, Xcov,GammaNew, sigma2r,tau2,Bigtau2,R)
   loglikNew <- loglikNewF$logl
-  loglikNewFR <- loglik(Y[N2], X[N2, ], Xcov[N2, ], GammaNew, sigma2, tau2, Bigtau2)
+  loglikNewFR <- loglik(Y[N2], X[N2, , drop = FALSE], Xcov[N2, , drop = FALSE], GammaNew, sigma2, tau2, Bigtau2)
   loglikNew <- loglikNew + loglikNewFR$logl
   logratio <- loglikNew + logprior_new - (loglikOld + logprior_old)
   u1 <- runif(1, 0, 1)
   if (log(u1) < logratio) {
     Gamma <- GammaNew
     uSu <- loglikNewFR$uSu
-    betaMean <- loglikNewF$betaMean
+    betaMeanCont <- loglikNewFR$betaMean
+    betaMeanBin <- loglikNewF$betaMean
     cholMat <- loglikNewF$cholMat
+    cholMatCont <- loglikNewFR$cholMat
   }
-  beta <- rep(0, p + pc + 1)
-  wh <- which(Gamma == 1)
-  pp <- sum(Gamma == 1)
-  UU <- rnorm(pp + pc + 1)
-  Bet <- betaMean + backsolve(cholMat, UU)
-  beta[1:(1 + pc)] <- Bet[1:(1 + pc)]
-  if (pp >= 1) {
-    beta[wh + 1 + pc] <- Bet[(2 + pc):(pp + 1 + pc)]
-  }
-  return(list(Gamma = Gamma, uSu = uSu, beta = beta))
+  ## betaBin is unaffected by sigma2 staleness (the binary/probit part is
+  ## always evaluated at fixed sigma2 = 1), so it is safe to draw here.
+  ## betaCont must NOT be drawn from the sigma2 passed in above (the value
+  ## from the previous MCMC iteration): the caller resamples sigma2 from
+  ## its fresh full conditional using uSu below, then draws betaCont from
+  ## betaMeanCont/cholMatCont using that updated sigma2.
+  betaBin <- DrawBeta(betaMeanBin, cholMat, 1, Gamma, pc)
+  return(list(Gamma = Gamma, uSu = uSu, betaBin = betaBin,
+              betaMeanCont = betaMeanCont, cholMatCont = cholMatCont))
 }
 
-# library(gear)
+## Always splits 50/50 between an Add/Delete move and a Swap move, even at
+## the boundary states (Gamma all-zero or all-one), where Swap is infeasible
+## and instead self-loops (proposes no change). This keeps the proposal
+## exactly symmetric (q(new|old) = q(old|new)) everywhere, which the
+## Metropolis-Hastings acceptance ratio used throughout this package assumes
+## and does not otherwise correct for; forcing Add/Delete at the boundary
+## (as an earlier version did) breaks that symmetry and measurably biases
+## the stationary distribution against very sparse/dense models.
 proposalGam <- function(gamma) {
   prop <- gamma
   p <- length(gamma)
   u <- runif(1, 0, 1)
   id1 <- which(gamma == 1)
-  # print(id1)
   L <- length(id1)
-  if ((u < 0.5) || ((L == 0) || (L == p))) { ## Add/Delete
+  if (u < 0.5) { ## Add/Delete
     l <- sample.int(p, 1)
     prop[l] <- 1 - gamma[l]
-  } else { ## Swap
+  } else if (L > 0 && L < p) { ## Swap
     id2 <- setdiff(1:p, id1)
     l1 <- sample(id1, 1)
     l2 <- sample(id2, 1)
     prop[l1] <- 0
     prop[l2] <- 1
-  }
+  } ## else: Swap infeasible at the boundary; propose no change
   return(prop)
 }
 
+### Draw regression coefficients beta | Gamma, sigma2 from the Gaussian
+### posterior N(betaMean, sigma2 * Mat^-1), given Mat's Cholesky factor
+DrawBeta <- function(betaMean, cholMat, sigma2, Gamma, pc) {
+  p <- length(Gamma)
+  beta <- rep(0, p + pc + 1)
+  wh <- which(Gamma == 1)
+  pp <- sum(Gamma == 1)
+  UU <- rnorm(pp + pc + 1)
+  Bet <- betaMean + sqrt(sigma2) * backsolve(cholMat, UU)
+  beta[1:(1 + pc)] <- Bet[1:(1 + pc)]
+  if (pp >= 1) {
+    beta[wh + 1 + pc] <- Bet[(2 + pc):(pp + 1 + pc)]
+  }
+  beta
+}
 
-loglikLinear <- function(y = y, X = X, Xcov = Xcov, gamma = gamma, asigma, bsigma, tau2 = tau2, Bigtau2 = Bigtau2) {
+
+loglikLinear <- function(y = y, X = X, Xcov = Xcov, gamma = gamma, asigma, bsigma, 
+                tau2 = tau2, Bigtau2 = Bigtau2) {
   n <- length(y)
   Xcov1 <- Xcov
   if (is.null(Xcov)) {
@@ -167,7 +192,7 @@ Sigma2 <- function(n, uSu, aa, ba) {
 ### Sample Gamma
 ## prior proba
 SampleGamma <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, sigma2 = sigma2, tau2 = tau2,
-                        Bigtau2 = Bigtau2, theta = theta, GammaM2 = GammaM2, nu = nu, Local = TRUE) {
+                        Bigtau2 = Bigtau2, theta = theta, GammaM2 = GammaM2, nu = nu) {
   GammaOutput <- GammaM1
   Xcov1 <- Xcov
   if (!is.null(Xcov)) {
@@ -178,7 +203,6 @@ SampleGamma <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, s
   GammaNew <- proposalGam(GammaM1)
   logprior_old <- sum(GammaM1 * logEX) #-sum(log(1+exp(logEX)))
   logprior_new <- sum(GammaNew * logEX) #-sum(log(1+exp(logEX)))
-  if (Local == TRUE) {
     loglikOldF <- loglik(y = y, X = X, Xcov = Xcov1, gamma = GammaM1, sigma2 = sigma2, tau2 = tau2, Bigtau2 = Bigtau2)
     loglikOld <- loglikOldF$logl
     uSu <- loglikOldF$uSu
@@ -186,22 +210,17 @@ SampleGamma <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, s
     cholMat <- loglikOldF$cholMat
     loglikNewF <- loglik(y = y, X = X, Xcov = Xcov1, gamma = GammaNew, sigma2 = sigma2, tau2 = tau2, Bigtau2 = Bigtau2)
     loglikNew <- loglikNewF$logl
-  } else {
-    loglikOld <- LogLikNonLocal(sel = which(GammaM1 == 1), X = X, y, alpha = 0.1, lambda = 0.1, tau = 1, tau0 = 10^3, r = 1, maxiter = 40)$LogLik
-    loglikNew <- LogLikNonLocal(sel = which(GammaNew == 1), X = X, y, alpha = 0.1, lambda = 0.1, tau = 1, tau0 = 10^3, r = 1, maxiter = 40)$LogLik
-    #print(loglikOld)
-  }
+
   logratio <- loglikNew + logprior_new - (loglikOld + logprior_old)
   u2 <- runif(1, 0, 1)
   if (log(u2) < logratio) {
     GammaOutput <- GammaNew
-    if (Local == TRUE) {
+   
       uSu <- loglikNewF$uSu
       betaMean <- loglikNewF$betaMean
       cholMat <- loglikNewF$cholMat
-    }
+    
   }
-  if (Local == TRUE) {
     beta <- rep(0, p + pc + 1)
     wh <- which(GammaOutput == 1)
     pp <- sum(GammaOutput == 1)
@@ -212,9 +231,7 @@ SampleGamma <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, s
       beta[wh + 1 + pc] <- Bet[(2 + pc):(pp + 1 + pc)]
     }
     return(list(GammaM1 = GammaOutput, uSu = uSu, beta = beta))
-  } else {
-    return(list(GammaM1 = GammaOutput))
-  }
+ 
 }
 
 ## sample theta
@@ -240,19 +257,17 @@ SampleTheta <- function(theta = theta, nu1 = nu1, nu2 = nu2, Gamma1 = Gamma1, Ga
 }
 
 
-SampleGammaLinear <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, asigma, bsigma, sigma2=sigma2, tau2 = tau2,
-                        Bigtau2 = Bigtau2, theta = theta, GammaM2 = GammaM2, nu = nu, Local = TRUE) {
+SampleGammaLinear <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, asigma, bsigma, tau2 = tau2,
+                        Bigtau2 = Bigtau2, theta = theta, GammaM2 = GammaM2, nu = nu) {
   GammaOutput <- GammaM1
   Xcov1 <- Xcov
   if (!is.null(Xcov)) {
     Xcov1 <- as.matrix(Xcov, nrow = length(y), ncol = pc)
   }
-  p <- length(GammaM1)
   logEX <- nu + theta * GammaM2
   GammaNew <- proposalGam(GammaM1)
   logprior_old <- sum(GammaM1 * logEX) #-sum(log(1+exp(logEX)))
   logprior_new <- sum(GammaNew * logEX) #-sum(log(1+exp(logEX)))
-  if (Local == TRUE) {
     loglikOldF <- loglikLinear(y = y, X = X, Xcov = Xcov1, gamma = GammaM1, asigma, bsigma, tau2 = tau2, Bigtau2 = Bigtau2)
     loglikOld <- loglikOldF$logl
     uSu <- loglikOldF$uSu
@@ -260,35 +275,18 @@ SampleGammaLinear <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc =
     cholMat <- loglikOldF$cholMat
     loglikNewF <- loglikLinear(y = y, X = X, Xcov = Xcov1, gamma = GammaNew, asigma, bsigma, tau2 = tau2, Bigtau2 = Bigtau2)
     loglikNew <- loglikNewF$logl
-  } else {
-    loglikOld <- LogLikNonLocal(sel = which(GammaM1 == 1), X = X, Xcov=Xcov1, y=y, tau0 = tau2, tau1=Bigtau2)$LogLik
-    loglikNew <- LogLikNonLocal(sel = which(GammaNew == 1), X = X, Xcov=Xcov1, y=y, tau0 = tau2, tau1=Bigtau2)$LogLik
-    #print(loglikOld)
-   # print(loglikNew)
-  }
+
   logratio <- loglikNew + logprior_new - (loglikOld + logprior_old)
 
   u2 <- runif(1, 0, 1)
   if (log(u2) < logratio) {
     GammaOutput <- GammaNew
-    if (Local == TRUE) {
       uSu <- loglikNewF$uSu
       betaMean <- loglikNewF$betaMean
       cholMat <- loglikNewF$cholMat
-    }
+    
   }
-  if (Local == TRUE) {
-    beta <- rep(0, p + pc + 1)
-    wh <- which(GammaOutput == 1)
-    pp <- sum(GammaOutput == 1)
-    UU <- rnorm(pp + pc + 1)
-    Bet <- betaMean + sqrt(sigma2) * backsolve(cholMat, UU)
-    beta[1:(1 + pc)] <- Bet[1:(1 + pc)]
-    if (pp >= 1) {
-      beta[wh + 1 + pc] <- Bet[(2 + pc):(pp + 1 + pc)]
-    }
-    return(list(GammaM1 = GammaOutput, uSu = uSu, beta = beta))
-  } else {
-    return(list(GammaM1 = GammaOutput))
-  }
+  
+    return(list(GammaM1 = GammaOutput, uSu = uSu, betaMean = betaMean, cholMat = cholMat))
+
 }
