@@ -14,7 +14,7 @@ GenDataSemiContinous(
   beta = 1,
   percentOverlap = "Full",
   seed = 1,
-  log_scale = FALSE
+  log_scale = TRUE
 )
 }
 \arguments{

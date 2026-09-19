@@ -60,14 +60,7 @@ SampleGammaCombProb <- function(N2, Gamma, U, Y, X, Xcov, tau2, Bigtau2, nu, sig
               betaMeanCont = betaMeanCont, cholMatCont = cholMatCont))
 }
 
-## Always splits 50/50 between an Add/Delete move and a Swap move, even at
-## the boundary states (Gamma all-zero or all-one), where Swap is infeasible
-## and instead self-loops (proposes no change). This keeps the proposal
-## exactly symmetric (q(new|old) = q(old|new)) everywhere, which the
-## Metropolis-Hastings acceptance ratio used throughout this package assumes
-## and does not otherwise correct for; forcing Add/Delete at the boundary
-## (as an earlier version did) breaks that symmetry and measurably biases
-## the stationary distribution against very sparse/dense models.
+
 proposalGam <- function(gamma) {
   prop <- gamma
   p <- length(gamma)

@@ -65,7 +65,7 @@
 #'                              log_scale = TRUE)
 #' str(Dat)
 GenDataSemiContinous <- function(Xreal = FALSE, n = n, p = p, X = NULL, sd = 1, impf = 20, beta = 1,
-                                 percentOverlap = "Full", seed = 1, log_scale = FALSE) {
+                                 percentOverlap = "Full", seed = 1, log_scale = TRUE) {
   set.seed(seed)
   # impf is the number of important covariates. if impf=10 then the 10 first features are important
   # percentOverlap is the percentage of overlap important features between model 1 and model 2: "Full", "Medium" and "NoOverlap"
