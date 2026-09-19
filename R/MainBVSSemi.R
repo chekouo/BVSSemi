@@ -235,7 +235,7 @@ MainBVSSemi <- function(
       betaBin <- Gamma2F$beta
     } else if (Method == "BVSSemiComb") {
       GammaF <- SampleGammaCombProb(
-        N2 = N2, Gamma = Gamma1, U = U, Y = Y, X = X, Xcov = Xcov, tau2 = tau21,
+        N2 = N2, Gamma = Gamma1, U = U, y2 = y2, X = X, Xcov = Xcov, tau2 = tau21,
         Bigtau2 = Bigtau2, nu = nu1, sigma2 = sigma2
       )
       betaBin <- GammaF$betaBin

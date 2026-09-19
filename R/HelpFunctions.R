@@ -14,7 +14,7 @@ YLatent2 <- function(Yobs, X, Xcov, betaR) {
   return(Ys)
 }
 
-SampleGammaCombProb <- function(N2, Gamma, U, Y, X, Xcov, tau2, Bigtau2, nu, sigma2) {
+SampleGammaCombProb <- function(N2, Gamma, U, y2, X, Xcov, tau2, Bigtau2, nu, sigma2) {
   if (is.null(Xcov)) {
     pc <- 0
   } else {
@@ -28,16 +28,16 @@ SampleGammaCombProb <- function(N2, Gamma, U, Y, X, Xcov, tau2, Bigtau2, nu, sig
   loglikOldF <- loglik(U, X, Xcov, Gamma, 1, tau2, Bigtau2)
   loglikOld <- loglikOldF$logl
   cholMat <- loglikOldF$cholMat
-  
+
   betaMeanBin <- loglikOldF$betaMean
-  loglikOldFR <- loglik(Y[N2], X[N2, , drop = FALSE], Xcov[N2, , drop = FALSE], Gamma, sigma2, tau2, Bigtau2)
+  loglikOldFR <- loglik(y2, X[N2, , drop = FALSE], Xcov[N2, , drop = FALSE], Gamma, sigma2, tau2, Bigtau2)
   cholMatCont <- loglikOldFR$cholMat
   betaMeanCont <- loglikOldFR$betaMean
   loglikOld <- loglikOld + loglikOldFR$logl
   uSu <- loglikOldFR$uSu
   loglikNewF <- loglik(U, X, Xcov, GammaNew, 1, tau2, Bigtau2)
   loglikNew <- loglikNewF$logl
-  loglikNewFR <- loglik(Y[N2], X[N2, , drop = FALSE], Xcov[N2, , drop = FALSE], GammaNew, sigma2, tau2, Bigtau2)
+  loglikNewFR <- loglik(y2, X[N2, , drop = FALSE], Xcov[N2, , drop = FALSE], GammaNew, sigma2, tau2, Bigtau2)
   loglikNew <- loglikNew + loglikNewFR$logl
   logratio <- loglikNew + logprior_new - (loglikOld + logprior_old)
   u1 <- runif(1, 0, 1)
