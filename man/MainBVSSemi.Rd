@@ -61,10 +61,14 @@ distribution of the regression effects in the continuous model.}
 of the regression effects in the binary model.}
 
 \item{nu1cont}{Log-odds of the prior probability of feature inclusion in
-the continuous model.}
+the continuous model. For \code{Method = "BVSSemiComb"}, the continuous
+and binary models share a single inclusion indicator, and
+\code{nu1cont} alone controls its prior log-odds (\code{nu2bin} is
+ignored in that case).}
 
 \item{nu2bin}{Log-odds of the prior probability of feature inclusion in
-the binary model.}
+the binary model. Ignored when \code{Method = "BVSSemiComb"} (see
+\code{nu1cont}).}
 
 \item{varpropTheta}{Variance of the Metropolis-Hastings proposal
 distribution for \code{theta}. It should be tuned to give an
