@@ -4,7 +4,16 @@
 \alias{CVPredictBVSSemi}
 \title{K-Fold Cross-Validated Prediction Performance for BVSSemi}
 \usage{
-CVPredictBVSSemi(Y, X, Xcov = NULL, K = 5, log_scale = TRUE, seed = 1, ...)
+CVPredictBVSSemi(
+  Y,
+  X,
+  Xcov = NULL,
+  K = 5,
+  log_scale = TRUE,
+  seed = 1,
+  ncores = 1,
+  ...
+)
 }
 \arguments{
 \item{Y}{A numeric vector giving the semicontinuous response (a mix of
@@ -30,6 +39,15 @@ nonzero values of \code{Y} to be strictly positive.}
 \item{seed}{Integer base seed. Fold \code{k} is fit with seed
 \code{seed + k}; the fold assignment itself is also determined by
 \code{seed} via \code{set.seed(seed)}.}
+
+\item{ncores}{Number of folds to run in parallel, via a
+\code{parallel::makeCluster} PSOCK cluster of \code{min(ncores, K)}
+worker processes. Defaults to \code{1} (sequential, via \code{lapply},
+identical to the original behavior). Unlike a fork-based cluster, PSOCK
+workers are plain \code{Rscript} processes connected over a local
+socket, so this works identically on Windows, macOS and Linux. Each
+fold is still fit with its own deterministic seed (\code{seed + k}), so
+results are identical whether run sequentially or in parallel.}
 
 \item{...}{Additional arguments passed on to \code{\link{MainBVSSemi}}
 for every fold (e.g. \code{Method}, \code{mcmcsample}, \code{burnin},
