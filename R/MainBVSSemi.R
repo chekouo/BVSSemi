@@ -43,9 +43,13 @@
 #' @param tau2bin Variance (hyper)parameter of the normal prior distribution
 #'   of the regression effects in the binary model.
 #' @param nu1cont Log-odds of the prior probability of feature inclusion in
-#'   the continuous model.
+#'   the continuous model. For \code{Method = "BVSSemiComb"}, the continuous
+#'   and binary models share a single inclusion indicator, and
+#'   \code{nu1cont} alone controls its prior log-odds (\code{nu2bin} is
+#'   ignored in that case).
 #' @param nu2bin Log-odds of the prior probability of feature inclusion in
-#'   the binary model.
+#'   the binary model. Ignored when \code{Method = "BVSSemiComb"} (see
+#'   \code{nu1cont}).
 #' @param varpropTheta Variance of the Metropolis-Hastings proposal
 #'   distribution for \code{theta}. It should be tuned to give an
 #'   acceptance rate of roughly 20-60 percent. Defaults to \code{.25}.
@@ -142,6 +146,11 @@ MainBVSSemi <- function(
     atheta = 1, btheta = 1, tau2cont = 1, tau2bin = 0.5, nu1cont = -3, nu2bin = -3, varpropTheta = .25,
     Bigtau2 = 100, asigma = .1, bsigma = .1, mcmcsample = 10000, burnin = 5000, thin=5,
     log_scale = TRUE) {
+  if (Method == "BVSSemiComb" && !missing(nu2bin)) {
+    warning("nu2bin is ignored when Method = \"BVSSemiComb\": the continuous ",
+            "and binary models share a single inclusion indicator, whose prior ",
+            "log-odds is controlled by nu1cont alone.")
+  }
   tau21 <- tau2cont; tau22 <- tau2bin
   nu1 <- nu1cont; nu2 <- nu2bin
   set.seed(seed)

@@ -231,15 +231,23 @@ SampleGamma <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, s
 
 SampleTheta <- function(theta = theta, nu1 = nu1, nu2 = nu2, Gamma1 = Gamma1, Gamma2 = Gamma2, alpha1 = alpha1, beta1 = beta1, varpropo = 1) {
   p <- length(Gamma1)
+  ## Keep theta bounded away from 0: the proposal's shape (~theta^2) and rate
+  ## (~theta) would otherwise be able to underflow to exactly 0 after many
+  ## iterations, making rgamma()/dgamma() degenerate and crashing the chain
+  ## (log(u3) < logratio errors with "missing value where TRUE/FALSE needed").
+  eps <- 1e-6
+  theta <- max(theta, eps)
   thetaOutput <- theta
   NormaCost <- 1 + exp(nu1 + nu2 + theta) + exp(nu1) + exp(nu2)
   logEX <- theta * sum(Gamma1 * Gamma2) - p * log(NormaCost)
   alphanew <- theta^2 / varpropo
   betanew <- theta / varpropo
-  thetaProp <- rgamma(1, alphanew, rate = betanew)
+  thetaProp <- max(rgamma(1, alphanew, rate = betanew), eps)
   NormaCostnew <- 1 + exp(nu1 + nu2 + thetaProp) + exp(nu1) + exp(nu2)
   logEXnew <- thetaProp * sum(Gamma1 * Gamma2) - p * log(NormaCostnew)
-  logratio <- logEXnew + dgamma(thetaProp, shape = alpha1, rate = beta1, log = T) + dgamma(theta, shape = thetaProp^2 / varpropo, rate = thetaProp / varpropo, log = T) - logEX - dgamma(theta, shape = alpha1, rate = beta1, log = T) - dgamma(thetaProp, alphanew, rate = betanew, log = T)
+  logratio <- logEXnew + dgamma(thetaProp, shape = alpha1, rate = beta1, log = T) + 
+  dgamma(theta, shape = thetaProp^2 / varpropo, rate = thetaProp / varpropo, log = T) - logEX - 
+  dgamma(theta, shape = alpha1, rate = beta1, log = T) - dgamma(thetaProp, alphanew, rate = betanew, log = T)
   u3 <- runif(1, 0, 1)
   acceptTheta <- 0
   if (log(u3) < logratio) {
