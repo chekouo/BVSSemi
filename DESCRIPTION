@@ -7,6 +7,9 @@ Author: Thierry Chekouo
 Maintainer: Thierry Chekouo <tchekouo@umn.edu>
 Description: The BVSSemi package implements an MCMC algorithm for a Bayesian variable selection for semicontinuous response. The models use a two-part model approach and propose to link the models via MRF priors. 
 License: GPL (>= 2.0)
-Imports: truncnorm, gear, stats
+Imports: truncnorm, gear, stats, parallel
 Encoding: UTF-8
 RoxygenNote: 7.3.3
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
