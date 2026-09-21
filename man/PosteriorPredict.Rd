@@ -2,31 +2,23 @@
 % Please edit documentation in R/Prediction.R
 \name{PosteriorPredict}
 \alias{PosteriorPredict}
-\title{Posterior Predictive Distribution for New Subjects}
+\title{Posterior Predictive Distribution for New Subjects via Bayesian Model Averaging}
 \usage{
-PosteriorPredict(
-  fit,
-  Xnew,
-  Xcovnew = NULL,
-  log_scale = TRUE,
-  nmodels = NULL,
-  nresample = 2000,
-  seed = NULL
-)
+PosteriorPredict(fit, Xnew, Xcovnew = NULL, log_scale = TRUE, nmodels)
 }
 \arguments{
-\item{fit}{A list returned by \code{\link{MainBVSSemi}} (or an equivalent
-BVSSemi fitting function) containing at least the following components:
+\item{fit}{A list returned by \code{\link{MainBVSSemi}} containing at
+least the following components:
 \describe{
-  \item{\code{beta.Bin.draws}}{An M x (1 + pc + p) matrix of posterior
-    draws of the occurrence-model coefficients (intercept, forced-in
-    covariates: pc, then predictors:p), one row per retained MCMC
-    iteration.}
-  \item{\code{beta.Cont.draws}}{An M x (1 + pc + p) matrix of posterior
-    draws of the continuous (magnitude) model coefficients, with the
-    same column layout as \code{beta.Bin.draws}.}
-  \item{\code{sigma2.draws}}{A numeric vector of length M with the
-    posterior draws of the residual variance of the continuous model.}
+  \item{\code{Gamma.cont.models}, \code{Gamma.bin.models}}{Matrices (one
+    row per unique visited model) of the continuous- and binary-model
+    inclusion indicators for that model.}
+  \item{\code{logPost.models}}{Length-\eqn{K} vector (\eqn{K} = number
+    of unique visited models) of each model's estimated log-posterior.}
+  \item{\code{beta.Cont.mode}, \code{beta.Bin.mode}}{\eqn{K} x
+    (1 + pc + p) matrices of each model's posterior-mode coefficients.}
+  \item{\code{sigma2.mean}}{A single number: the posterior mean residual
+    variance, shared across every model.}
   \item{\code{X.center}, \code{X.scale}}{Length-p vectors of the column
     means and standard deviations used to standardize \code{X} when
     fitting the model, used to standardize \code{Xnew} the same way.}
@@ -56,57 +48,33 @@ continuous linear predictor is used directly as the conditional mean.
 Must match the \code{log_scale} value used when fitting \code{fit}
 with \code{\link{MainBVSSemi}}.}
 
-\item{nmodels}{Optional integer. If supplied, switches from averaging
-over every retained MCMC draw to Bayesian model averaging (BMA) over
-only the \code{nmodels} distinct \code{(Gamma1, Gamma2)} models visited
-during MCMC with the highest estimated log-posterior (via
-\code{fit$logPost.draws}, requires a \code{fit} from the current
-\code{\link{MainBVSSemi}}). This avoids the plain full-draw average
-being dominated by a rare, poorly identified draw (see
-\code{yhat.mean}), by excluding low-posterior-probability models
-entirely rather than just being robust to their influence like
-\code{yhat.median} is. Defaults to \code{NULL} (use every retained
-draw, the original behavior).}
-
-\item{nresample}{Only used when \code{nmodels} is supplied: the total
-number of pseudo-draws to build from the \code{nmodels} kept models,
-allocated across them proportional to their normalized BMA weight and
-resampled (with replacement) from each model's own visited MCMC draws
-(preserving within-model parameter uncertainty, not just between-model
-uncertainty). Defaults to \code{2000}.}
-
-\item{seed}{Only used when \code{nmodels} is supplied: optional integer
-seed for the resampling above, for reproducibility.}
+\item{nmodels}{Integer, required. Bayesian model averaging is performed
+over the top \code{nmodels} visited models by estimated log-posterior
+(\code{fit$logPost.models}); if fewer than \code{nmodels} models were
+visited, all of them are used.}
 }
 \value{
 A list with the following components:
   \describe{
-    \item{\code{p.pos.mean}}{Length-n vector of posterior mean
-      probabilities that the outcome is nonzero for each new subject.}
-    \item{\code{mu.mean}}{Length-n vector of posterior mean linear
-      predictors from the continuous (magnitude) model.}
-    \item{\code{mu.draws}}{An n x M matrix of the continuous linear
-      predictor for every posterior draw and new subject.}
-    \item{\code{sigma2.draws}}{The length-M vector of residual variance
-      draws, passed through from \code{fit}.}
-    \item{\code{yhat.mean}}{Length-n vector of posterior mean predicted
-      outcomes, E[Y | x] = P(Y > 0 | x) * E[Y | Y > 0, x], averaged over
-      draws. When \code{log_scale = TRUE}, this is a Monte Carlo average
-      of \code{exp(etaCont + sigma2 / 2)} across draws, which can be
-      dominated by rare, extreme draws for weakly identified features
-      (small training \code{n} relative to \code{p}); see
-      \code{yhat.median}.}
-    \item{\code{yhat.median}}{Length-n vector of posterior median
-      predicted outcomes (median across draws of
-      \code{P(Y > 0 | x, draw) * E[Y | Y > 0, x, draw]}), a more robust
-      point estimate than \code{yhat.mean} when a handful of draws are
-      extreme.}
-    \item{\code{bma}}{Only present when \code{nmodels} was supplied: a
-      list with \code{nmodels} (models actually kept, \code{<= nmodels}
-      if fewer were visited), \code{weights} (their normalized BMA
-      weights) and \code{logpost} (their estimated log-posterior values),
-      named by a string key identifying each kept
-      \code{(Gamma1, Gamma2)} model.}
+    \item{\code{p.pos.mean}}{Length-n vector of the BMA-weighted
+      probability that the outcome is nonzero for each new subject.}
+    \item{\code{ycont.mean}}{Length-n vector of the BMA-weighted
+      continuous (magnitude) model linear predictor.}
+    \item{\code{ycont.draws}}{An n x \code{nmodels} matrix of the
+      continuous (magnitude) model linear predictor for every kept model
+      (unweighted; used e.g. by \code{\link{EvaluatePrediction}}'s
+      posterior-interval coverage check).}
+    \item{\code{sigma2.draws}}{The single shared \code{fit$sigma2.mean},
+      repeated once per kept model (length \code{nmodels}) for shape
+      compatibility with \code{ycont.draws}.}
+    \item{\code{yhat.mean}}{Length-n vector of the BMA-weighted predicted
+      outcome, \eqn{E[Y | x] = \sum_k w_k P(Y > 0 | x, model_k) E[Y | Y >
+      0, x, model_k]}, where \eqn{w_k} are the normalized BMA weights.}
+    \item{\code{bma}}{A list with \code{nmodels} (models actually kept,
+      \code{<= nmodels} if fewer were visited), \code{weights} (their
+      normalized BMA weights, summing to 1) and \code{logpost} (their
+      estimated log-posterior values), named by a string key identifying
+      each kept \code{(Gamma.cont, Gamma.bin)} model.}
   }
 }
 \description{
@@ -114,12 +82,19 @@ Computes posterior predictive summaries for new subjects from a fitted
 BVSSemi semicontinuous regression model (see \code{\link{MainBVSSemi}}),
 which jointly models the probability that the outcome is nonzero (a
 probit occurrence model) and its magnitude given it is nonzero (a linear
-model). Predictions are obtained by averaging over the retained
-post-burn-in MCMC draws of the regression coefficients and residual
-variance. \code{Xnew} and \code{Xcovnew} are standardized using the
-column means and standard deviations stored in \code{fit} (as computed
-by \code{\link{MainBVSSemi}} on the training data), so they should be
-passed on their original (unstandardized) scale.
+model). Predictions are formed by Bayesian model averaging (BMA) over the
+\code{nmodels} distinct \code{(Gamma.cont, Gamma.bin)} feature-selection
+models visited during MCMC with the highest estimated log-posterior
+(\code{fit$logPost.models}), each represented by its deterministic
+posterior-mode coefficients (\code{fit$beta.Cont.mode},
+\code{fit$beta.Bin.mode}, computed once per unique model as
+post-processing in \code{\link{MainBVSSemi}}, not from any single noisy
+MCMC draw) and a single shared residual variance (\code{fit$sigma2.mean}),
+combined by a weighted average using each kept model's normalized
+posterior probability. \code{Xnew} and \code{Xcovnew} are standardized
+using the column means and standard deviations stored in \code{fit} (as
+computed by \code{\link{MainBVSSemi}} on the training data), so they
+should be passed on their original (unstandardized) scale.
 }
 \examples{
 \dontrun{
@@ -143,8 +118,8 @@ DatTest <- GenDataSemiContinous(n = 100, p = 500, sd = 1, impf = 20,
                                  beta = 0.3, percentOverlap = "Full", seed = 2,
                                  log_scale = TRUE)
 
-## Predict for the new subjects
-pred <- PosteriorPredict(fit, Xnew = DatTest$X, Xcovnew = NULL)
+## Predict for the new subjects via BMA over the top 10 visited models
+pred <- PosteriorPredict(fit, Xnew = DatTest$X, Xcovnew = NULL, nmodels = 10)
 
 ## Posterior mean predicted outcome for each new subject
 str(pred$yhat.mean)

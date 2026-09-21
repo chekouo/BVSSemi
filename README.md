@@ -64,12 +64,13 @@ fit <- MainBVSSemi(Method = "BVSSemiMRF", Y = Dat$Y, X = Dat$X,
 head(fit$prob.Z.Cont)  # continuous (magnitude) part
 head(fit$prob.Z.Bin)   # binary (occurrence) part
 
-## Predict for new subjects and evaluate performance
-pred <- PosteriorPredict(fit, Xnew = Dat$X)
+## Predict for new subjects (Bayesian model averaging over the top 10
+## visited feature-selection models) and evaluate performance
+pred <- PosteriorPredict(fit, Xnew = Dat$X, nmodels = 10)
 EvaluatePrediction(Dat$Y, pred)
 
 ## K-fold cross-validated predictive performance
-CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = 5, Method = "BVSSemiMRF",
+CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = 5, nmodels = 10, Method = "BVSSemiMRF",
                   mcmcsample = 10000, burnin = 5000)
 ```
 
@@ -77,7 +78,7 @@ CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = 5, Method = "BVSSemiMRF",
 
 | Function | Purpose |
 |----------|---------|
-| `MainBVSSemi()` | Runs the MCMC algorithm and returns marginal posterior inclusion probabilities plus posterior draws of the model coefficients, residual variance, and (for `"BVSSemiMRF"`) the MRF interaction parameter `theta`. |
+| `MainBVSSemi()` | Runs the MCMC algorithm and returns marginal posterior inclusion probabilities, posterior draws of the visited feature-selection models and (for `"BVSSemiMRF"`) the MRF interaction parameter `theta`, plus each visited model's posterior-mode coefficients and residual variance (for `PosteriorPredict()`'s Bayesian model averaging). |
 | `GenDataSemiContinous()` | Simulates semicontinuous data under the model described in the reference below, with configurable overlap between the important features of the two parts. |
 | `PosteriorPredict()` | Computes posterior predictive summaries (probability of a nonzero response, predicted magnitude, predicted mean) for new subjects from a fitted model. |
 | `EvaluatePrediction()` | Scores predictions against a held-out response: AUC and Brier score for the binary part; RMSE, MAE, correlation, and interval coverage for the continuous part; combined RMSE/MAE overall. |

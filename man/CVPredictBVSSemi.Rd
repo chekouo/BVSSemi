@@ -12,6 +12,7 @@ CVPredictBVSSemi(
   log_scale = TRUE,
   seed = 1,
   ncores = 1,
+  nmodels,
   ...
 )
 }
@@ -49,6 +50,10 @@ socket, so this works identically on Windows, macOS and Linux. Each
 fold is still fit with its own deterministic seed (\code{seed + k}), so
 results are identical whether run sequentially or in parallel.}
 
+\item{nmodels}{Integer, required, passed to \code{\link{PosteriorPredict}}
+in every fold: Bayesian model averaging is performed over the top
+\code{nmodels} visited models by estimated log-posterior.}
+
 \item{...}{Additional arguments passed on to \code{\link{MainBVSSemi}}
 for every fold (e.g. \code{Method}, \code{mcmcsample}, \code{burnin},
 \code{nu1cont}, \code{nu2bin}, etc.).}
@@ -74,7 +79,7 @@ hyperparameters, passed through \code{...}.
 Dat <- GenDataSemiContinous(n = 300, p = 200, sd = 1, impf = 20,
                              beta = 0.3, percentOverlap = "Full", seed = 1,
                              log_scale = TRUE)
-perf <- CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = 5,
+perf <- CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = 5, nmodels = 10,
                           Method = "BVSSemiMRF",
                           mcmcsample = 5000, burnin = 1000)
 colMeans(perf)

@@ -12,7 +12,7 @@
 #'   (a mix of exact zeros and continuous positive values), on their
 #'   original (unstandardized, un-logged) scale.
 #' @param pred A list returned by \code{\link{PosteriorPredict}}, containing
-#'   at least \code{p.pos.mean}, \code{mu.mean}, \code{mu.draws},
+#'   at least \code{p.pos.mean}, \code{ycont.mean}, \code{ycont.draws},
 #'   \code{sigma2.draws} and \code{yhat.mean} for the same subjects as
 #'   \code{Ytest}.
 #' @param coverage_level Nominal coverage level of the posterior predictive
@@ -21,7 +21,7 @@
 #' @param log_scale Logical. Must match the \code{log_scale} value used to
 #'   fit the model with \code{\link{MainBVSSemi}} and to generate
 #'   \code{pred} with \code{\link{PosteriorPredict}}. If \code{TRUE} (the
-#'   default), \code{pred$mu.mean} and \code{pred$mu.draws} are on the
+#'   default), \code{pred$ycont.mean} and \code{pred$ycont.draws} are on the
 #'   \code{log(Y)} scale, so the nonzero values of \code{Ytest} are
 #'   log-transformed before being compared to them (and must therefore be
 #'   strictly positive); if \code{FALSE}, \code{Ytest} is compared to them
@@ -38,12 +38,13 @@
 #'     \item{\code{Brier_binary}}{Brier score (mean squared error) of
 #'       \code{pred$p.pos.mean} against the nonzero indicator.}
 #'     \item{\code{RMSE_cont}, \code{MAE_cont}}{Root-mean-squared and mean
-#'       absolute error of \code{pred$mu.mean} against the (nonzero, and
+#'       absolute error of \code{pred$ycont.mean} against the (nonzero, and
 #'       optionally log-transformed) observations, restricted to subjects
 #'       with \code{Ytest != 0}. \code{NA} when fewer than 2 such subjects
 #'       are present.}
-#'     \item{\code{Corr_cont}}{Pearson correlation between \code{pred$mu.mean}
-#'       and the observations among subjects with \code{Ytest != 0}.}
+#'     \item{\code{Corr_cont}}{Pearson correlation between
+#'       \code{pred$ycont.mean} and the observations among subjects with
+#'       \code{Ytest != 0}.}
 #'     \item{\code{Coverage<XX>_cont}}{Empirical coverage of the
 #'       \code{coverage_level} posterior predictive interval for the
 #'       continuous part, among subjects with \code{Ytest != 0}, where
@@ -51,19 +52,7 @@
 #'       (e.g. \code{Coverage95_cont}).}
 #'     \item{\code{RMSE_combined}, \code{MAE_combined}}{Root-mean-squared
 #'       and mean absolute error of \code{pred$yhat.mean} against
-#'       \code{Ytest}, over all subjects, on the original response scale.
-#'       \code{pred$yhat.mean} is a Monte Carlo average of exponentiated
-#'       draws (when \code{log_scale = TRUE}) and can be dominated by rare
-#'       extreme draws for weakly identified features (e.g. small training
-#'       \code{n} relative to \code{p}); if that happens, these metrics can
-#'       be very large even when the model's predictions are otherwise
-#'       reasonable. See \code{RMSE_combined_median}/\code{MAE_combined_median}.}
-#'     \item{\code{RMSE_combined_median}, \code{MAE_combined_median}}{Same
-#'       as \code{RMSE_combined}/\code{MAE_combined} but computed against
-#'       \code{pred$yhat.median} instead, which is far more robust to the
-#'       rare extreme draws described above. Only present when \code{pred}
-#'       includes \code{yhat.median} (i.e. was produced by the current
-#'       \code{\link{PosteriorPredict}}).}
+#'       \code{Ytest}, over all subjects, on the original response scale.}
 #'   }
 #'
 #' @seealso \code{\link{MainBVSSemi}}, \code{\link{PosteriorPredict}},
@@ -103,7 +92,7 @@ EvaluatePrediction <- function(Ytest, pred, coverage_level = 0.95, log_scale = T
   out$Brier_binary <- mean((pred$p.pos.mean - ind)^2)
 
   if (sum(pos) >= 2) {
-    ## pred$mu.mean/mu.draws are on the scale the continuous model was
+    ## pred$ycont.mean/ycont.draws are on the scale the continuous model was
     ## fit on (log(Y) when log_scale = TRUE), so obs must be put on that
     ## same scale before comparing, or RMSE_cont/MAE_cont mix scales
     if (log_scale) {
@@ -114,14 +103,14 @@ EvaluatePrediction <- function(Ytest, pred, coverage_level = 0.95, log_scale = T
     } else {
       obs <- Ytest[pos]
     }
-    muhat <- pred$mu.mean[pos]
+    muhat <- pred$ycont.mean[pos]
     resid <- obs - muhat
     out$RMSE_cont <- sqrt(mean(resid^2))
     out$MAE_cont  <- mean(abs(resid))
     out$Corr_cont <- if (sd(muhat) > 0) cor(obs, muhat) else NA
-    M <- ncol(pred$mu.draws)
+    M <- ncol(pred$ycont.draws)
     eps <- matrix(rnorm(sum(pos) * M), sum(pos), M)
-    predDraws <- pred$mu.draws[pos, , drop = FALSE] + sweep(eps, 2, sqrt(pred$sigma2.draws), "*")
+    predDraws <- pred$ycont.draws[pos, , drop = FALSE] + sweep(eps, 2, sqrt(pred$sigma2.draws), "*")
     lo <- apply(predDraws, 1, quantile, probs = (1 - coverage_level) / 2)
     hi <- apply(predDraws, 1, quantile, probs = 1 - (1 - coverage_level) / 2)
     out[[paste0("Coverage", round(coverage_level * 100), "_cont")]] <- mean(obs >= lo & obs <= hi)
@@ -131,13 +120,5 @@ EvaluatePrediction <- function(Ytest, pred, coverage_level = 0.95, log_scale = T
   residAll <- Ytest - pred$yhat.mean
   out$RMSE_combined <- sqrt(mean(residAll^2))
   out$MAE_combined  <- mean(abs(residAll))
-  if (!is.null(pred$yhat.median)) {
-    ## yhat.mean can be dominated by rare extreme MCMC draws for weakly
-    ## identified features (see PosteriorPredict); yhat.median is more
-    ## robust and usually the more meaningful error metric in that regime.
-    residAllMed <- Ytest - pred$yhat.median
-    out$RMSE_combined_median <- sqrt(mean(residAllMed^2))
-    out$MAE_combined_median  <- mean(abs(residAllMed))
-  }
   out
 }

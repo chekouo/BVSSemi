@@ -1,4 +1,4 @@
-#' @importFrom stats rnorm rbinom rgamma dgamma runif pnorm cor sd quantile median rmultinom
+#' @importFrom stats rnorm rbinom rgamma dgamma runif pnorm cor sd quantile
 #' @importFrom truncnorm rtruncnorm
 #' @importFrom gear solve_chol
 NULL
@@ -67,7 +67,7 @@ SampleGammaCombProb <- function(N2, Gamma, U, y2, X, Xcov, tau2, Bigtau2, nu, si
   loglCont <- loglikLinear(y2, X[N2, , drop = FALSE], Xcov[N2, , drop = FALSE], Gamma,
                             asigma, bsigma, tau2, Bigtau2)$logl
   return(list(Gamma = Gamma, uSu = uSu, betaBin = betaBin,
-              betaMeanCont = betaMeanCont, cholMatCont = cholMatCont,
+              betaMeanCont = betaMeanCont, betaMeanBin = betaMeanBin, cholMatCont = cholMatCont,
               loglBin = loglBin, loglCont = loglCont))
 }
 
@@ -111,20 +111,28 @@ proposalGam <- function(gamma) {
   return(prop)
 }
 
-### Draw regression coefficients beta | Gamma, sigma2 from the Gaussian
-### posterior N(betaMean, sigma2 * Mat^-1), given Mat's Cholesky factor
-DrawBeta <- function(betaMean, cholMat, sigma2, Gamma, pc) {
+### Expand a length-(1 + pc + #selected) coefficient vector (intercept, Xcov
+### effects, then selected-feature effects, in that order) into the full
+### length-(p + pc + 1) vector with zeros for excluded features.
+ExpandBeta <- function(betaShort, Gamma, pc) {
   p <- length(Gamma)
   beta <- rep(0, p + pc + 1)
   wh <- which(Gamma == 1)
   pp <- sum(Gamma == 1)
-  UU <- rnorm(pp + pc + 1)
-  Bet <- betaMean + sqrt(sigma2) * backsolve(cholMat, UU)
-  beta[1:(1 + pc)] <- Bet[1:(1 + pc)]
+  beta[1:(1 + pc)] <- betaShort[1:(1 + pc)]
   if (pp >= 1) {
-    beta[wh + 1 + pc] <- Bet[(2 + pc):(pp + 1 + pc)]
+    beta[wh + 1 + pc] <- betaShort[(2 + pc):(pp + 1 + pc)]
   }
   beta
+}
+
+### Draw regression coefficients beta | Gamma, sigma2 from the Gaussian
+### posterior N(betaMean, sigma2 * Mat^-1), given Mat's Cholesky factor
+DrawBeta <- function(betaMean, cholMat, sigma2, Gamma, pc) {
+  pp <- sum(Gamma == 1)
+  UU <- rnorm(pp + pc + 1)
+  Bet <- betaMean + sqrt(sigma2) * backsolve(cholMat, UU)
+  ExpandBeta(Bet, Gamma, pc)
 }
 
 
@@ -247,16 +255,8 @@ SampleGamma <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, s
       logl <- loglikNew
 
   }
-    beta <- rep(0, p + pc + 1)
-    wh <- which(GammaOutput == 1)
-    pp <- sum(GammaOutput == 1)
-    UU <- rnorm(pp + pc + 1)
-    Bet <- betaMean + sqrt(sigma2) * backsolve(cholMat, UU)
-    beta[1:(1 + pc)] <- Bet[1:(1 + pc)]
-    if (pp >= 1) {
-      beta[wh + 1 + pc] <- Bet[(2 + pc):(pp + 1 + pc)]
-    }
-    return(list(GammaM1 = GammaOutput, uSu = uSu, beta = beta, logl = logl))
+    beta <- DrawBeta(betaMean, cholMat, sigma2, GammaOutput, pc)
+    return(list(GammaM1 = GammaOutput, uSu = uSu, beta = beta, logl = logl, betaMean = betaMean))
 
 }
 

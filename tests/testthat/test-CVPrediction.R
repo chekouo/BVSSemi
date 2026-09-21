@@ -1,8 +1,18 @@
+test_that("CVPredictBVSSemi requires nmodels", {
+  Dat <- GenDataSemiContinous(n = 60, p = 15, sd = 1, impf = 5, beta = 0.3,
+                               percentOverlap = "Full", seed = 1, log_scale = TRUE)
+  expect_error(
+    CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = 3, Method = "BVSSemiMRF",
+                      mcmcsample = 100, burnin = 50),
+    "nmodels is required"
+  )
+})
+
 test_that("CVPredictBVSSemi returns one row of metrics per fold", {
   Dat <- GenDataSemiContinous(n = 100, p = 20, sd = 1, impf = 5, beta = 0.3,
                                percentOverlap = "Full", seed = 1, log_scale = TRUE)
   K <- 3
-  perf <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = K, seed = 1,
+  perf <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = K, seed = 1, nmodels = 5,
                                     Method = "BVSSemiMRF", mcmcsample = 150, burnin = 75))
 
   expect_s3_class(perf, "data.frame")
@@ -21,9 +31,9 @@ test_that("ncores > 1 (PSOCK cluster) gives identical results to sequential (reg
   Dat <- GenDataSemiContinous(n = 100, p = 20, sd = 1, impf = 5, beta = 0.3,
                                percentOverlap = "Full", seed = 1, log_scale = TRUE)
   K <- 4
-  perf_seq <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = K, seed = 1, ncores = 1,
+  perf_seq <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = K, seed = 1, ncores = 1, nmodels = 5,
                                         Method = "BVSSemiMRF", mcmcsample = 150, burnin = 75))
-  perf_par <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = K, seed = 1, ncores = 2,
+  perf_par <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = K, seed = 1, ncores = 2, nmodels = 5,
                                         Method = "BVSSemiMRF", mcmcsample = 150, burnin = 75))
 
   expect_s3_class(perf_par, "data.frame")
@@ -38,7 +48,7 @@ test_that("ncores > 1 also works with Xcov and extra MainBVSSemi hyperparameters
                                percentOverlap = "Full", seed = 1, log_scale = TRUE)
   Xcov <- matrix(rnorm(n * 2), n, 2)
   perf <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, Xcov = Xcov, K = 3, seed = 5, ncores = 2,
-                                    Method = "BVSSemiIndep", nu1cont = -4,
+                                    nmodels = 5, Method = "BVSSemiIndep", nu1cont = -4,
                                     mcmcsample = 100, burnin = 50))
 
   expect_s3_class(perf, "data.frame")
