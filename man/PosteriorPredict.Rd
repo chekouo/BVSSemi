@@ -4,7 +4,15 @@
 \alias{PosteriorPredict}
 \title{Posterior Predictive Distribution for New Subjects}
 \usage{
-PosteriorPredict(fit, Xnew, Xcovnew = NULL, log_scale = TRUE)
+PosteriorPredict(
+  fit,
+  Xnew,
+  Xcovnew = NULL,
+  log_scale = TRUE,
+  nmodels = NULL,
+  nresample = 2000,
+  seed = NULL
+)
 }
 \arguments{
 \item{fit}{A list returned by \code{\link{MainBVSSemi}} (or an equivalent
@@ -47,6 +55,28 @@ bias correction, \code{exp(mu + sigma2 / 2)}. If \code{FALSE}, the
 continuous linear predictor is used directly as the conditional mean.
 Must match the \code{log_scale} value used when fitting \code{fit}
 with \code{\link{MainBVSSemi}}.}
+
+\item{nmodels}{Optional integer. If supplied, switches from averaging
+over every retained MCMC draw to Bayesian model averaging (BMA) over
+only the \code{nmodels} distinct \code{(Gamma1, Gamma2)} models visited
+during MCMC with the highest estimated log-posterior (via
+\code{fit$logPost.draws}, requires a \code{fit} from the current
+\code{\link{MainBVSSemi}}). This avoids the plain full-draw average
+being dominated by a rare, poorly identified draw (see
+\code{yhat.mean}), by excluding low-posterior-probability models
+entirely rather than just being robust to their influence like
+\code{yhat.median} is. Defaults to \code{NULL} (use every retained
+draw, the original behavior).}
+
+\item{nresample}{Only used when \code{nmodels} is supplied: the total
+number of pseudo-draws to build from the \code{nmodels} kept models,
+allocated across them proportional to their normalized BMA weight and
+resampled (with replacement) from each model's own visited MCMC draws
+(preserving within-model parameter uncertainty, not just between-model
+uncertainty). Defaults to \code{2000}.}
+
+\item{seed}{Only used when \code{nmodels} is supplied: optional integer
+seed for the resampling above, for reproducibility.}
 }
 \value{
 A list with the following components:
@@ -61,7 +91,22 @@ A list with the following components:
       draws, passed through from \code{fit}.}
     \item{\code{yhat.mean}}{Length-n vector of posterior mean predicted
       outcomes, E[Y | x] = P(Y > 0 | x) * E[Y | Y > 0, x], averaged over
-      draws.}
+      draws. When \code{log_scale = TRUE}, this is a Monte Carlo average
+      of \code{exp(etaCont + sigma2 / 2)} across draws, which can be
+      dominated by rare, extreme draws for weakly identified features
+      (small training \code{n} relative to \code{p}); see
+      \code{yhat.median}.}
+    \item{\code{yhat.median}}{Length-n vector of posterior median
+      predicted outcomes (median across draws of
+      \code{P(Y > 0 | x, draw) * E[Y | Y > 0, x, draw]}), a more robust
+      point estimate than \code{yhat.mean} when a handful of draws are
+      extreme.}
+    \item{\code{bma}}{Only present when \code{nmodels} was supplied: a
+      list with \code{nmodels} (models actually kept, \code{<= nmodels}
+      if fewer were visited), \code{weights} (their normalized BMA
+      weights) and \code{logpost} (their estimated log-posterior values),
+      named by a string key identifying each kept
+      \code{(Gamma1, Gamma2)} model.}
   }
 }
 \description{
