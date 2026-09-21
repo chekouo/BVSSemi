@@ -1,6 +1,6 @@
 Package: BVSSemi
 Type: Package
-Title: BVSSemi: A Bayesian variable selection for semicontinuous response
+Title: A Bayesian variable selection Method for semicontinuous response
 Version: 1.1
 Date: 2023-06-20
 Author: Thierry Chekouo
