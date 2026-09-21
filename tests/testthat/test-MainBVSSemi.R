@@ -10,6 +10,7 @@ test_that("MainBVSSemi runs for all three methods and returns the documented fie
   Dat <- make_small_data()
   expected_fields <- c(
     "prob.Z.Cont", "prob.Z.Bin", "beta.Cont.draws", "beta.Bin.draws",
+    "Gamma1.draws", "Gamma2.draws", "logPost.draws",
     "sigma2.draws", "theta.draws", "AcceptanceRateTheta", "pc", "p",
     "log_scale", "X.center", "X.scale", "Xcov.center", "Xcov.scale"
   )

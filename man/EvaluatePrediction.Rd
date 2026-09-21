@@ -54,7 +54,19 @@ A named list of performance metrics:
       (e.g. \code{Coverage95_cont}).}
     \item{\code{RMSE_combined}, \code{MAE_combined}}{Root-mean-squared
       and mean absolute error of \code{pred$yhat.mean} against
-      \code{Ytest}, over all subjects, on the original response scale.}
+      \code{Ytest}, over all subjects, on the original response scale.
+      \code{pred$yhat.mean} is a Monte Carlo average of exponentiated
+      draws (when \code{log_scale = TRUE}) and can be dominated by rare
+      extreme draws for weakly identified features (e.g. small training
+      \code{n} relative to \code{p}); if that happens, these metrics can
+      be very large even when the model's predictions are otherwise
+      reasonable. See \code{RMSE_combined_median}/\code{MAE_combined_median}.}
+    \item{\code{RMSE_combined_median}, \code{MAE_combined_median}}{Same
+      as \code{RMSE_combined}/\code{MAE_combined} but computed against
+      \code{pred$yhat.median} instead, which is far more robust to the
+      rare extreme draws described above. Only present when \code{pred}
+      includes \code{yhat.median} (i.e. was produced by the current
+      \code{\link{PosteriorPredict}}).}
   }
 }
 \description{

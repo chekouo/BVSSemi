@@ -1,4 +1,4 @@
-#' @importFrom stats rnorm rbinom rgamma dgamma runif pnorm cor sd quantile
+#' @importFrom stats rnorm rbinom rgamma dgamma runif pnorm cor sd quantile median rmultinom
 #' @importFrom truncnorm rtruncnorm
 #' @importFrom gear solve_chol
 NULL
@@ -14,7 +14,7 @@ YLatent2 <- function(Yobs, X, Xcov, betaR) {
   return(Ys)
 }
 
-SampleGammaCombProb <- function(N2, Gamma, U, y2, X, Xcov, tau2, Bigtau2, nu, sigma2) {
+SampleGammaCombProb <- function(N2, Gamma, U, y2, X, Xcov, tau2, Bigtau2, nu, sigma2, asigma, bsigma) {
   if (is.null(Xcov)) {
     pc <- 0
   } else {
@@ -41,6 +41,7 @@ SampleGammaCombProb <- function(N2, Gamma, U, y2, X, Xcov, tau2, Bigtau2, nu, si
   loglikNew <- loglikNew + loglikNewFR$logl
   logratio <- loglikNew + logprior_new - (loglikOld + logprior_old)
   u1 <- runif(1, 0, 1)
+  loglBin <- loglikOldF$logl
   if (log(u1) < logratio) {
     Gamma <- GammaNew
     uSu <- loglikNewFR$uSu
@@ -48,6 +49,7 @@ SampleGammaCombProb <- function(N2, Gamma, U, y2, X, Xcov, tau2, Bigtau2, nu, si
     betaMeanBin <- loglikNewF$betaMean
     cholMat <- loglikNewF$cholMat
     cholMatCont <- loglikNewFR$cholMat
+    loglBin <- loglikNewF$logl
   }
   ## betaBin is unaffected by sigma2 staleness (the binary/probit part is
   ## always evaluated at fixed sigma2 = 1), so it is safe to draw here.
@@ -56,8 +58,37 @@ SampleGammaCombProb <- function(N2, Gamma, U, y2, X, Xcov, tau2, Bigtau2, nu, si
   ## its fresh full conditional using uSu below, then draws betaCont from
   ## betaMeanCont/cholMatCont using that updated sigma2.
   betaBin <- DrawBeta(betaMeanBin, cholMat, 1, Gamma, pc)
+  ## loglCont: the accepted Gamma's continuous-submodel marginal likelihood
+  ## with sigma2 integrated out (loglikLinear), computed purely for
+  ## cross-iteration-comparable model-posterior bookkeeping (e.g. Bayesian
+  ## model averaging in PosteriorPredict) -- NOT used in the MH step above,
+  ## which must keep comparing old/new Gamma at the same (possibly stale)
+  ## sigma2 to stay a valid transition kernel.
+  loglCont <- loglikLinear(y2, X[N2, , drop = FALSE], Xcov[N2, , drop = FALSE], Gamma,
+                            asigma, bsigma, tau2, Bigtau2)$logl
   return(list(Gamma = Gamma, uSu = uSu, betaBin = betaBin,
-              betaMeanCont = betaMeanCont, cholMatCont = cholMatCont))
+              betaMeanCont = betaMeanCont, cholMatCont = cholMatCont,
+              loglBin = loglBin, loglCont = loglCont))
+}
+
+### Properly normalized (including the log(1 + exp(...)) constant) joint
+### log-prior of (Gamma1, Gamma2) under the theta-linked MRF prior; theta = 0
+### reduces it to two independent Bernoulli(nu1)/Bernoulli(nu2) priors
+### (BVSSemiIndep). Unlike the MH-step priors above (which drop this
+### constant since it cancels within a single accept/reject comparison),
+### this is meant to be compared ACROSS iterations with different theta, so
+### the constant must be kept.
+logPriorMRF <- function(Gamma1, Gamma2, theta, nu1, nu2) {
+  p <- length(Gamma1)
+  NormaCost <- 1 + exp(nu1 + nu2 + theta) + exp(nu1) + exp(nu2)
+  sum(nu1 * Gamma1 + nu2 * Gamma2 + theta * Gamma1 * Gamma2) - p * log(NormaCost)
+}
+
+### Properly normalized log-prior for BVSSemiComb's single shared inclusion
+### indicator (nu2bin plays no role here, matching MainBVSSemi's convention).
+logPriorShared <- function(Gamma, nu1) {
+  p <- length(Gamma)
+  sum(nu1 * Gamma) - p * log(1 + exp(nu1))
 }
 
 
@@ -206,13 +237,15 @@ SampleGamma <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, s
 
   logratio <- loglikNew + logprior_new - (loglikOld + logprior_old)
   u2 <- runif(1, 0, 1)
+  logl <- loglikOld
   if (log(u2) < logratio) {
     GammaOutput <- GammaNew
-   
+
       uSu <- loglikNewF$uSu
       betaMean <- loglikNewF$betaMean
       cholMat <- loglikNewF$cholMat
-    
+      logl <- loglikNew
+
   }
     beta <- rep(0, p + pc + 1)
     wh <- which(GammaOutput == 1)
@@ -223,8 +256,8 @@ SampleGamma <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc = pc, s
     if (pp >= 1) {
       beta[wh + 1 + pc] <- Bet[(2 + pc):(pp + 1 + pc)]
     }
-    return(list(GammaM1 = GammaOutput, uSu = uSu, beta = beta))
- 
+    return(list(GammaM1 = GammaOutput, uSu = uSu, beta = beta, logl = logl))
+
 }
 
 ## sample theta
@@ -280,14 +313,16 @@ SampleGammaLinear <- function(GammaM1 = GammaM1, y = y, X = X, Xcov = Xcov, pc =
   logratio <- loglikNew + logprior_new - (loglikOld + logprior_old)
 
   u2 <- runif(1, 0, 1)
+  logl <- loglikOld
   if (log(u2) < logratio) {
     GammaOutput <- GammaNew
       uSu <- loglikNewF$uSu
       betaMean <- loglikNewF$betaMean
       cholMat <- loglikNewF$cholMat
-    
+      logl <- loglikNew
+
   }
-  
-    return(list(GammaM1 = GammaOutput, uSu = uSu, betaMean = betaMean, cholMat = cholMat))
+
+    return(list(GammaM1 = GammaOutput, uSu = uSu, betaMean = betaMean, cholMat = cholMat, logl = logl))
 
 }

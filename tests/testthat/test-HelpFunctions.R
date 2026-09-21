@@ -129,7 +129,7 @@ test_that("SampleGammaCombProb fits the continuous part on y2 (log scale), not r
   U[Dat$Y == 0] <- abs(rnorm(sum(Dat$Y == 0)))
 
   out <- SampleGammaCombProb(N2 = N2, Gamma = Gamma, U = U, y2 = y2, X = Dat$X, Xcov = NULL,
-                              tau2 = 1, Bigtau2 = 100, nu = -3, sigma2 = 1)
+                              tau2 = 1, Bigtau2 = 100, nu = -3, sigma2 = 1, asigma = .1, bsigma = .1)
 
   ## betaMeanCont should be on the scale of log(Y), i.e. small in magnitude;
   ## if the raw (exponentiated) Y were used instead, this would be orders of

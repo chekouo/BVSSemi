@@ -114,6 +114,17 @@ A list with the following components:
     \item{\code{beta.Bin.draws}}{A matrix of thinned post-burn-in
       posterior draws of the binary-model coefficients, with the same
       column layout as \code{beta.Cont.draws}.}
+    \item{\code{Gamma1.draws}, \code{Gamma2.draws}}{Matrices (one row per
+      retained draw, one column per feature) of the continuous- and
+      binary-model inclusion indicators for that draw. Identical to each
+      other for \code{"BVSSemiComb"} (a single shared indicator).}
+    \item{\code{logPost.draws}}{Length-\eqn{M} vector (\eqn{M} = number of
+      retained draws) of each draw's total log-posterior of its discrete
+      model \code{(Gamma1, Gamma2)} (and \code{theta} for
+      \code{"BVSSemiMRF"}), up to a model-independent constant. Used by
+      \code{\link{PosteriorPredict}}'s \code{nmodels} argument (Bayesian
+      model averaging over the highest-posterior-probability visited
+      models) and not meaningful on its own outside that context.}
     \item{\code{sigma2.draws}}{Thinned post-burn-in posterior draws of the
       continuous-model residual variance, \code{sigma2}.}
     \item{\code{theta.draws}}{Thinned post-burn-in posterior draws of

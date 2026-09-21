@@ -86,6 +86,17 @@
 #'     \item{\code{beta.Bin.draws}}{A matrix of thinned post-burn-in
 #'       posterior draws of the binary-model coefficients, with the same
 #'       column layout as \code{beta.Cont.draws}.}
+#'     \item{\code{Gamma1.draws}, \code{Gamma2.draws}}{Matrices (one row per
+#'       retained draw, one column per feature) of the continuous- and
+#'       binary-model inclusion indicators for that draw. Identical to each
+#'       other for \code{"BVSSemiComb"} (a single shared indicator).}
+#'     \item{\code{logPost.draws}}{Length-\eqn{M} vector (\eqn{M} = number of
+#'       retained draws) of each draw's total log-posterior of its discrete
+#'       model \code{(Gamma1, Gamma2)} (and \code{theta} for
+#'       \code{"BVSSemiMRF"}), up to a model-independent constant. Used by
+#'       \code{\link{PosteriorPredict}}'s \code{nmodels} argument (Bayesian
+#'       model averaging over the highest-posterior-probability visited
+#'       models) and not meaningful on its own outside that context.}
 #'     \item{\code{sigma2.draws}}{Thinned post-burn-in posterior draws of the
 #'       continuous-model residual variance, \code{sigma2}.}
 #'     \item{\code{theta.draws}}{Thinned post-burn-in posterior draws of
@@ -217,6 +228,9 @@ MainBVSSemi <- function(
   betaBinDraws  <- matrix(0, n_thin, p + pc + 1)
   sigma2Draws   <- rep(0, n_thin)
   thetaDraws    <- rep(0, n_thin)
+  Gamma1Draws   <- matrix(0, n_thin, p)
+  Gamma2Draws   <- matrix(0, n_thin, p)
+  logPostDraws  <- rep(0, n_thin)
   keep_i <- 0
   NR <- length(N2)
 
@@ -242,10 +256,12 @@ MainBVSSemi <- function(
       )
       Gamma2 <- Gamma2F$GammaM1
       betaBin <- Gamma2F$beta
+      contLogl <- Gamma1F$logl
+      binLogl <- Gamma2F$logl
     } else if (Method == "BVSSemiComb") {
       GammaF <- SampleGammaCombProb(
         N2 = N2, Gamma = Gamma1, U = U, y2 = y2, X = X, Xcov = Xcov, tau2 = tau21,
-        Bigtau2 = Bigtau2, nu = nu1, sigma2 = sigma2
+        Bigtau2 = Bigtau2, nu = nu1, sigma2 = sigma2, asigma = asigma, bsigma = bsigma
       )
       betaBin <- GammaF$betaBin
       Gamma1 <- GammaF$Gamma
@@ -254,6 +270,8 @@ MainBVSSemi <- function(
       sigma2 <- Sigma2(NR, GammaF$uSu, aa, ba)
       betaCont <- DrawBeta(GammaF$betaMeanCont, GammaF$cholMatCont, sigma2, Gamma1, pc)
       Gamma2 <- Gamma1
+      contLogl <- GammaF$loglCont
+      binLogl <- GammaF$loglBin
     }
 
      if (Method == "BVSSemiMRF") {
@@ -265,6 +283,13 @@ MainBVSSemi <- function(
     } else {
       theta <- 0
     }
+    ## Per-iteration total log-posterior of the discrete model (Gamma1,
+    ## Gamma2 [, theta]), up to a Gamma/theta-independent constant -- used
+    ## only for cross-iteration model-posterior bookkeeping (e.g. Bayesian
+    ## model averaging in PosteriorPredict), never for the MCMC transitions
+    ## themselves (those are handled by the Sample* functions above).
+    logPriorVal <- if (Method == "BVSSemiComb") logPriorShared(Gamma1, nu1) else logPriorMRF(Gamma1, Gamma2, theta, nu1, nu2)
+    logPostTotal <- contLogl + binLogl + logPriorVal
     if (s > burnin) {
       Gam1Mean <- Gam1Mean + Gamma1 / n_keep
       Gam2Mean <- Gam2Mean + Gamma2 / n_keep
@@ -274,6 +299,9 @@ MainBVSSemi <- function(
         betaBinDraws[keep_i, ]  <- betaBin
         sigma2Draws[keep_i] <- sigma2
         thetaDraws[keep_i] <- theta
+        Gamma1Draws[keep_i, ] <- Gamma1
+        Gamma2Draws[keep_i, ] <- Gamma2
+        logPostDraws[keep_i] <- logPostTotal
       }
     }
 
@@ -290,6 +318,9 @@ MainBVSSemi <- function(
   return(list(prob.Z.Cont = Gam1Mean, prob.Z.Bin = Gam2Mean,
   beta.Cont.draws = betaContDraws[seq_len(keep_i), , drop = FALSE],
   beta.Bin.draws = betaBinDraws[seq_len(keep_i), , drop = FALSE],
+  Gamma1.draws = Gamma1Draws[seq_len(keep_i), , drop = FALSE],
+  Gamma2.draws = Gamma2Draws[seq_len(keep_i), , drop = FALSE],
+  logPost.draws = logPostDraws[seq_len(keep_i)],
   sigma2.draws = sigma2Draws[seq_len(keep_i)],
   theta.draws = thetaDraws[seq_len(keep_i)],
   AcceptanceRateTheta = AcceptanceRateTheta, pc = pc, p = p,
