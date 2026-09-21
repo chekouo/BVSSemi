@@ -107,24 +107,47 @@ A list with the following components:
       inclusion probabilities of each feature in the continuous model.}
     \item{\code{prob.Z.Bin}}{Length-\eqn{p} vector of marginal posterior
       inclusion probabilities of each feature in the binary model.}
-    \item{\code{beta.Cont.draws}}{A matrix of thinned post-burn-in
-      posterior draws of the continuous-model coefficients (intercept,
-      \code{Xcov} effects, then feature effects), one row per retained
-      draw.}
-    \item{\code{beta.Bin.draws}}{A matrix of thinned post-burn-in
-      posterior draws of the binary-model coefficients, with the same
-      column layout as \code{beta.Cont.draws}.}
-    \item{\code{Gamma1.draws}, \code{Gamma2.draws}}{Matrices (one row per
-      retained draw, one column per feature) of the continuous- and
-      binary-model inclusion indicators for that draw. Identical to each
-      other for \code{"BVSSemiComb"} (a single shared indicator).}
+    \item{\code{Gamma.cont.draws}, \code{Gamma.bin.draws}}{Matrices (one
+      row per retained draw, one column per feature) of the continuous-
+      and binary-model inclusion indicators for that draw. Identical to
+      each other for \code{"BVSSemiComb"} (a single shared indicator).}
     \item{\code{logPost.draws}}{Length-\eqn{M} vector (\eqn{M} = number of
       retained draws) of each draw's total log-posterior of its discrete
-      model \code{(Gamma1, Gamma2)} (and \code{theta} for
-      \code{"BVSSemiMRF"}), up to a model-independent constant. Used by
-      \code{\link{PosteriorPredict}}'s \code{nmodels} argument (Bayesian
-      model averaging over the highest-posterior-probability visited
-      models) and not meaningful on its own outside that context.}
+      model \code{(Gamma.cont, Gamma.bin)} (and \code{theta} for
+      \code{"BVSSemiMRF"}), up to a model-independent constant.}
+    \item{\code{Gamma.cont.models}, \code{Gamma.bin.models}}{Matrices (one
+      row per \emph{unique} visited model, one column per feature) of the
+      distinct \code{(Gamma.cont, Gamma.bin)} configurations visited
+      during MCMC -- i.e. \code{Gamma.cont.draws}/\code{Gamma.bin.draws}
+      deduplicated.}
+    \item{\code{logPost.models}}{Length-\eqn{K} vector (\eqn{K} = number
+      of unique visited models) of each model's log-posterior, recomputed
+      once as post-processing after the MCMC loop from the fixed training
+      response \code{y2} (continuous part) and \code{U.mean} (binary
+      part, below) rather than averaged from any single noisy iteration's
+      value, plus the properly normalized Gamma-inclusion log-prior
+      evaluated at the posterior mean \code{theta} (\code{"BVSSemiMRF"}
+      only). Used by \code{\link{PosteriorPredict}}'s \code{nmodels}
+      argument (Bayesian model averaging over the
+      highest-posterior-probability visited models).}
+    \item{\code{beta.Cont.mode}, \code{beta.Bin.mode}}{\eqn{K} x
+      (1 + pc + p) matrices (one row per unique visited model) of the
+      continuous- and binary-model posterior-mode coefficients for that
+      model, computed once as post-processing after the MCMC loop (not
+      retained per draw): the continuous part from the fixed training
+      response, the binary part using \code{U.mean} (below) in place of
+      any single iteration's latent draw. Used by
+      \code{\link{PosteriorPredict}}'s \code{nmodels} argument.}
+    \item{\code{sigma2.mean}}{A single number: the posterior mean of
+      \code{sigma2.draws}, used as a common residual variance for every
+      model by \code{\link{PosteriorPredict}}'s \code{nmodels} argument
+      (unlike \code{beta.Cont.mode}/\code{beta.Bin.mode}, this does not
+      vary by model).}
+    \item{\code{U.mean}}{Length-\eqn{n} vector: the posterior mean of the
+      binary submodel's latent augmentation variable \code{U} across all
+      retained draws, used (in place of any single draw's noisy \code{U})
+      to compute \code{beta.Bin.mode} and \code{logPost.models} for every
+      visited model.}
     \item{\code{sigma2.draws}}{Thinned post-burn-in posterior draws of the
       continuous-model residual variance, \code{sigma2}.}
     \item{\code{theta.draws}}{Thinned post-burn-in posterior draws of

@@ -34,6 +34,9 @@
 #'   socket, so this works identically on Windows, macOS and Linux. Each
 #'   fold is still fit with its own deterministic seed (\code{seed + k}), so
 #'   results are identical whether run sequentially or in parallel.
+#' @param nmodels Integer, required, passed to \code{\link{PosteriorPredict}}
+#'   in every fold: Bayesian model averaging is performed over the top
+#'   \code{nmodels} visited models by estimated log-posterior.
 #' @param ... Additional arguments passed on to \code{\link{MainBVSSemi}}
 #'   for every fold (e.g. \code{Method}, \code{mcmcsample}, \code{burnin},
 #'   \code{nu1cont}, \code{nu2bin}, etc.).
@@ -54,17 +57,21 @@
 #' Dat <- GenDataSemiContinous(n = 300, p = 200, sd = 1, impf = 20,
 #'                              beta = 0.3, percentOverlap = "Full", seed = 1,
 #'                              log_scale = TRUE)
-#' perf <- CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = 5,
+#' perf <- CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = 5, nmodels = 10,
 #'                           Method = "BVSSemiMRF",
 #'                           mcmcsample = 5000, burnin = 1000)
 #' colMeans(perf)
 #' }
 ## ---- K-fold cross-validated prediction driver ----
-CVPredictBVSSemi <- function(Y, X, Xcov = NULL, K = 5, log_scale = TRUE, seed = 1, ncores = 1, ...) {
+CVPredictBVSSemi <- function(Y, X, Xcov = NULL, K = 5, log_scale = TRUE, seed = 1, ncores = 1, nmodels, ...) {
+  if (missing(nmodels)) {
+    stop("nmodels is required: it is passed to PosteriorPredict, which performs Bayesian ",
+         "model averaging over the top nmodels visited models in every fold.")
+  }
   ## Rebind every argument to a plain value (not just force it) so runFold's
   ## closure carries no lingering reference to the caller's environment
   ## (e.g. an expression like Dat$Y) when shipped to a PSOCK worker below.
-  Y <- Y; X <- X; Xcov <- Xcov; K <- K; log_scale <- log_scale; seed <- seed
+  Y <- Y; X <- X; Xcov <- Xcov; K <- K; log_scale <- log_scale; seed <- seed; nmodels <- nmodels
   dots <- list(...)
   set.seed(seed)
   n <- length(Y)
@@ -76,7 +83,8 @@ CVPredictBVSSemi <- function(Y, X, Xcov = NULL, K = 5, log_scale = TRUE, seed = 
     Xcov_te <- if (is.null(Xcov)) NULL else Xcov[te, , drop = FALSE]
     fit <- do.call(MainBVSSemi, c(list(Y = Y[tr], X = X[tr, , drop = FALSE], Xcov = Xcov_tr,
                                         seed = seed + k, log_scale = log_scale), dots))
-    pred <- PosteriorPredict(fit, Xnew = X[te, , drop = FALSE], Xcovnew = Xcov_te, log_scale = log_scale)
+    pred <- PosteriorPredict(fit, Xnew = X[te, , drop = FALSE], Xcovnew = Xcov_te,
+                              log_scale = log_scale, nmodels = nmodels)
     EvaluatePrediction(Y[te], pred, log_scale = log_scale)
   }
 

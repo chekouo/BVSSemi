@@ -12,7 +12,7 @@ EvaluatePrediction(Ytest, pred, coverage_level = 0.95, log_scale = TRUE)
 original (unstandardized, un-logged) scale.}
 
 \item{pred}{A list returned by \code{\link{PosteriorPredict}}, containing
-at least \code{p.pos.mean}, \code{mu.mean}, \code{mu.draws},
+at least \code{p.pos.mean}, \code{ycont.mean}, \code{ycont.draws},
 \code{sigma2.draws} and \code{yhat.mean} for the same subjects as
 \code{Ytest}.}
 
@@ -23,7 +23,7 @@ interval used to assess calibration of the continuous part (e.g.
 \item{log_scale}{Logical. Must match the \code{log_scale} value used to
 fit the model with \code{\link{MainBVSSemi}} and to generate
 \code{pred} with \code{\link{PosteriorPredict}}. If \code{TRUE} (the
-default), \code{pred$mu.mean} and \code{pred$mu.draws} are on the
+default), \code{pred$ycont.mean} and \code{pred$ycont.draws} are on the
 \code{log(Y)} scale, so the nonzero values of \code{Ytest} are
 log-transformed before being compared to them (and must therefore be
 strictly positive); if \code{FALSE}, \code{Ytest} is compared to them
@@ -41,12 +41,13 @@ A named list of performance metrics:
     \item{\code{Brier_binary}}{Brier score (mean squared error) of
       \code{pred$p.pos.mean} against the nonzero indicator.}
     \item{\code{RMSE_cont}, \code{MAE_cont}}{Root-mean-squared and mean
-      absolute error of \code{pred$mu.mean} against the (nonzero, and
+      absolute error of \code{pred$ycont.mean} against the (nonzero, and
       optionally log-transformed) observations, restricted to subjects
       with \code{Ytest != 0}. \code{NA} when fewer than 2 such subjects
       are present.}
-    \item{\code{Corr_cont}}{Pearson correlation between \code{pred$mu.mean}
-      and the observations among subjects with \code{Ytest != 0}.}
+    \item{\code{Corr_cont}}{Pearson correlation between
+      \code{pred$ycont.mean} and the observations among subjects with
+      \code{Ytest != 0}.}
     \item{\code{Coverage<XX>_cont}}{Empirical coverage of the
       \code{coverage_level} posterior predictive interval for the
       continuous part, among subjects with \code{Ytest != 0}, where
@@ -54,19 +55,7 @@ A named list of performance metrics:
       (e.g. \code{Coverage95_cont}).}
     \item{\code{RMSE_combined}, \code{MAE_combined}}{Root-mean-squared
       and mean absolute error of \code{pred$yhat.mean} against
-      \code{Ytest}, over all subjects, on the original response scale.
-      \code{pred$yhat.mean} is a Monte Carlo average of exponentiated
-      draws (when \code{log_scale = TRUE}) and can be dominated by rare
-      extreme draws for weakly identified features (e.g. small training
-      \code{n} relative to \code{p}); if that happens, these metrics can
-      be very large even when the model's predictions are otherwise
-      reasonable. See \code{RMSE_combined_median}/\code{MAE_combined_median}.}
-    \item{\code{RMSE_combined_median}, \code{MAE_combined_median}}{Same
-      as \code{RMSE_combined}/\code{MAE_combined} but computed against
-      \code{pred$yhat.median} instead, which is far more robust to the
-      rare extreme draws described above. Only present when \code{pred}
-      includes \code{yhat.median} (i.e. was produced by the current
-      \code{\link{PosteriorPredict}}).}
+      \code{Ytest}, over all subjects, on the original response scale.}
   }
 }
 \description{
