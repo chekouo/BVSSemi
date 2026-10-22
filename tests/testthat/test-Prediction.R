@@ -102,19 +102,42 @@ test_that("PosteriorPredict stays finite when a model's linear predictor would o
     logPost.models = c(0, -1, -2),
     beta.Bin.mode = matrix(rnorm((p + 1) * K), K, p + 1),
     beta.Cont.mode = matrix(rnorm((p + 1) * K), K, p + 1),
-    sigma2.mean = 0.3,
+    sigma2.models = c(0.3, 0.5, 0.8),
     X.center = rep(0, p), X.scale = rep(1, p),
     Xcov.center = NULL, Xcov.scale = NULL
   )
-  ## rig model 1 to hit exactly the pathological case
-  fit$beta.Cont.mode[1, ] <- c(5000, rep(0, p)) ## model 1's intercept alone -> huge etaCont for everyone
-  fit$beta.Bin.mode[1, ] <- c(50, rep(0, p))    ## model 1's etaBin -> pPos = 1 - pnorm(50) = 0 exactly
+  ## rig model 1 to hit exactly the pathological case: exp(etaCont) overflows
+  ## and 1 - pnorm(etaBin) is exactly 0, yet the true product
+  ## exp(log P(Y > 0) + etaCont + sigma2 / 2) = exp(5010 - 5005.5 + 0.15) ~ 100
+  ## is perfectly representable
+  fit$beta.Cont.mode[1, ] <- c(5010, rep(0, p)) ## model 1's intercept alone -> huge etaCont for everyone
+  fit$beta.Bin.mode[1, ] <- c(100, rep(0, p))   ## model 1's etaBin -> 1 - pnorm(100) = 0 exactly
 
   Xnew <- matrix(rnorm(n * p), n, p)
   pred <- PosteriorPredict(fit, Xnew = Xnew, nmodels = K)
 
   expect_true(all(is.finite(pred$yhat.mean)))
   expect_false(any(is.na(pred$yhat.mean)))
+
+  ## model 1's contribution must be its true (nonzero) value, not dropped as 0
+  w1 <- pred$bma$weights[1]
+  contrib1 <- w1 * exp(pnorm(100, lower.tail = FALSE, log.p = TRUE) + 5010 + fit$sigma2.models[1] / 2)
+  expect_true(all(pred$yhat.mean >= contrib1))
+})
+
+test_that("PosteriorPredict keeps tiny occurrence probabilities instead of rounding them to 0 (regression test)", {
+  p <- 3
+  fit <- list(
+    Gamma.cont.models = matrix(0, 1, p), Gamma.bin.models = matrix(0, 1, p),
+    logPost.models = 0,
+    beta.Bin.mode = matrix(c(9, rep(0, p)), 1), ## etaBin = 9 -> 1 - pnorm(9) == 0 in floating point
+    beta.Cont.mode = matrix(0, 1, p + 1),
+    sigma2.models = 1, X.center = rep(0, p), X.scale = rep(1, p),
+    Xcov.center = NULL, Xcov.scale = NULL, log_scale = FALSE
+  )
+  pred <- PosteriorPredict(fit, Xnew = matrix(0, 2, p), nmodels = 1)
+  expect_equal(pred$p.pos.mean, rep(pnorm(-9), 2))
+  expect_true(all(pred$p.pos.mean > 0))
 })
 
 test_that("BVSSemiComb predictions are on the same scale as the other two methods (regression test)", {
@@ -167,4 +190,64 @@ test_that("EvaluatePrediction handles a test set that is all zero or all nonzero
   perf_zero <- EvaluatePrediction(Yall_zero, pred)
   expect_true(is.na(perf_zero$AUC_binary))
   expect_true(is.na(perf_zero$RMSE_cont))
+})
+
+test_that("PosteriorPredict defaults log_scale to the value used to fit the model", {
+  Dat <- GenDataSemiContinous(n = 80, p = 15, sd = 1, impf = 5, beta = 0.3,
+                               percentOverlap = "Full", seed = 1, log_scale = FALSE)
+  fit <- quietly(MainBVSSemi(Method = "BVSSemiMRF", Y = Dat$Y, X = Dat$X, seed = 1,
+                              log_scale = FALSE, mcmcsample = 150, burnin = 75))
+  expect_equal(PosteriorPredict(fit, Xnew = Dat$X, nmodels = 5),
+               PosteriorPredict(fit, Xnew = Dat$X, log_scale = FALSE, nmodels = 5))
+})
+
+test_that("EvaluatePrediction's coverage uses the exact weighted BMA predictive mixture (regression test)", {
+  ## Previously coverage took empirical quantiles over nmodels unweighted
+  ## noisy draws, so nmodels = 1 always gave a zero-width interval and 0
+  ## coverage. One model with mean 0 and sigma2 = 1 on the log scale: the 95%
+  ## interval is +-1.96, so 2 of these 4 observations are covered.
+  pred1 <- list(p.pos.mean = rep(0.5, 4), ycont.mean = rep(0, 4),
+                ycont.draws = matrix(0, 4, 1), sigma2.draws = 1,
+                yhat.mean = rep(1, 4), bma = list(weights = 1))
+  Ytest <- exp(c(-2.5, -1.5, 1.5, 2.5))
+  expect_equal(EvaluatePrediction(Ytest, pred1)$Coverage95_cont, 0.5)
+
+  ## The BMA weights matter: a second model centred far away with negligible
+  ## weight must not change the result, but with equal weight it does.
+  pred2 <- pred1
+  pred2$ycont.draws <- cbind(0, rep(10, 4)); pred2$sigma2.draws <- c(1, 1)
+  pred2$bma$weights <- c(1 - 1e-12, 1e-12)
+  expect_equal(EvaluatePrediction(Ytest, pred2)$Coverage95_cont, 0.5)
+  pred2$bma$weights <- c(0.5, 0.5)
+  expect_false(EvaluatePrediction(Ytest, pred2)$Coverage95_cont == 0.5)
+})
+
+test_that("EvaluatePrediction's coverage is nonzero and deterministic with nmodels = 1", {
+  Dat <- GenDataSemiContinous(n = 100, p = 20, sd = 1, impf = 5, beta = 0.3,
+                               percentOverlap = "Full", seed = 1, log_scale = TRUE)
+  fit <- quietly(MainBVSSemi(Method = "BVSSemiMRF", Y = Dat$Y, X = Dat$X, seed = 1,
+                              mcmcsample = 300, burnin = 150))
+  DatTest <- GenDataSemiContinous(n = 60, p = 20, sd = 1, impf = 5, beta = 0.3,
+                                   percentOverlap = "Full", seed = 2, log_scale = TRUE)
+  pred <- PosteriorPredict(fit, Xnew = DatTest$X, nmodels = 1)
+  perf <- EvaluatePrediction(DatTest$Y, pred)
+  expect_true(perf$Coverage95_cont > 0.5)
+  expect_equal(perf, EvaluatePrediction(DatTest$Y, pred))
+})
+
+test_that("PosteriorPredict uses each kept model's own sigma2.models", {
+  Dat <- GenDataSemiContinous(n = 80, p = 20, sd = 1, impf = 5, beta = 0.3,
+                               percentOverlap = "Full", seed = 1, log_scale = TRUE)
+  fit <- quietly(MainBVSSemi(Method = "BVSSemiMRF", Y = Dat$Y, X = Dat$X, seed = 1,
+                              mcmcsample = 500, burnin = 200))
+  pred <- PosteriorPredict(fit, Xnew = Dat$X, nmodels = 5)
+  keep <- order(fit$logPost.models, decreasing = TRUE)[seq_len(pred$bma$nmodels)]
+  expect_equal(pred$sigma2.draws, fit$sigma2.models[keep])
+
+  ## sigma2.models matches the inverse-gamma posterior mode recomputed by hand
+  y2 <- log(Dat$Y[Dat$Y != 0])
+  Xs <- scale(Dat$X, fit$X.center, fit$X.scale)[Dat$Y != 0, , drop = FALSE]
+  contF <- loglikLinear(y2, Xs, NULL, fit$Gamma.cont.models[keep[1], ], .1, .1, 1, 100)
+  expect_equal(fit$sigma2.models[keep[1]],
+               as.numeric((.5 * contF$uSu + .1) / (.5 * length(y2) + .1 + 1)))
 })

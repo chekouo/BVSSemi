@@ -39,9 +39,13 @@
 #' @param btheta Rate (hyper)parameter of the gamma prior distribution of
 #'   \code{theta}, used only by the \code{"BVSSemiMRF"} method.
 #' @param tau2cont Variance (hyper)parameter of the normal prior
-#'   distribution of the regression effects in the continuous model.
+#'   distribution of the regression effects in the continuous model. For
+#'   \code{Method = "BVSSemiComb"}, \code{tau2cont} is used for the
+#'   regression effects of both the continuous and binary models
+#'   (\code{tau2bin} is ignored in that case).
 #' @param tau2bin Variance (hyper)parameter of the normal prior distribution
-#'   of the regression effects in the binary model.
+#'   of the regression effects in the binary model. Ignored when
+#'   \code{Method = "BVSSemiComb"} (see \code{tau2cont}).
 #' @param nu1cont Log-odds of the prior probability of feature inclusion in
 #'   the continuous model. For \code{Method = "BVSSemiComb"}, the continuous
 #'   and binary models share a single inclusion indicator, and
@@ -110,11 +114,20 @@
 #'       response, the binary part using \code{U.mean} (below) in place of
 #'       any single iteration's latent draw. Used by
 #'       \code{\link{PosteriorPredict}}'s \code{nmodels} argument.}
+#'     \item{\code{sigma2.models}}{Length-\eqn{K} vector (one entry per
+#'       unique visited model) of the posterior mode of the continuous-model
+#'       residual variance given that model's \code{Gamma.cont}, i.e. of
+#'       \eqn{IG(n_2/2 + a_\sigma, uSu/2 + b_\sigma)} with \eqn{n_2} the
+#'       number of nonzero responses, \code{asigma} = \eqn{a_\sigma},
+#'       \code{bsigma} = \eqn{b_\sigma} and \eqn{uSu} the model's residual
+#'       quadratic form with the coefficients integrated out:
+#'       \eqn{(uSu/2 + b_\sigma) / (n_2/2 + a_\sigma + 1)}. Computed once per
+#'       model as post-processing after the MCMC loop, alongside
+#'       \code{beta.Cont.mode}, and used as each model's residual variance
+#'       by \code{\link{PosteriorPredict}}'s \code{nmodels} argument.}
 #'     \item{\code{sigma2.mean}}{A single number: the posterior mean of
-#'       \code{sigma2.draws}, used as a common residual variance for every
-#'       model by \code{\link{PosteriorPredict}}'s \code{nmodels} argument
-#'       (unlike \code{beta.Cont.mode}/\code{beta.Bin.mode}, this does not
-#'       vary by model).}
+#'       \code{sigma2.draws} across the whole chain (not model-specific).
+#'       Returned for reference; prediction uses \code{sigma2.models}.}
 #'     \item{\code{U.mean}}{Length-\eqn{n} vector: the posterior mean of the
 #'       binary submodel's latent augmentation variable \code{U} across all
 #'       retained draws, used (in place of any single draw's noisy \code{U})
@@ -180,10 +193,21 @@ MainBVSSemi <- function(
     atheta = 1, btheta = 1, tau2cont = 1, tau2bin = 0.5, nu1cont = -3, nu2bin = -3, varpropTheta = .25,
     Bigtau2 = 100, asigma = .1, bsigma = .1, mcmcsample = 10000, burnin = 5000, thin=5,
     log_scale = TRUE) {
+  Method <- match.arg(Method, c("BVSSemiMRF", "BVSSemiComb", "BVSSemiIndep"))
+  if (burnin >= mcmcsample) {
+    stop("mcmcsample must be larger than burnin")
+  }
+  if (mcmcsample - burnin < thin) {
+    stop("mcmcsample - burnin must be at least thin, so that at least one draw is retained")
+  }
   if (Method == "BVSSemiComb" && !missing(nu2bin)) {
     warning("nu2bin is ignored when Method = \"BVSSemiComb\": the continuous ",
             "and binary models share a single inclusion indicator, whose prior ",
             "log-odds is controlled by nu1cont alone.")
+  }
+  if (Method == "BVSSemiComb" && !missing(tau2bin)) {
+    warning("tau2bin is ignored when Method = \"BVSSemiComb\": tau2cont is used ",
+            "for the regression effects of both the continuous and binary models.")
   }
   tau21 <- tau2cont; tau22 <- tau2bin
   nu1 <- nu1cont; nu2 <- nu2bin
@@ -361,6 +385,7 @@ MainBVSSemi <- function(
   betaContModel <- matrix(0, nModels, p + pc + 1)
   betaBinModel  <- matrix(0, nModels, p + pc + 1)
   logPostModels <- rep(0, nModels)
+  sigmaModel <- rep(0, nModels) ## per-model posterior mode of sigma2
   for (m in seq_len(nModels)) {
     g1 <- GammaContModels[m, ]
     g2 <- GammaBinModels[m, ]
@@ -370,6 +395,8 @@ MainBVSSemi <- function(
     betaBinModel[m, ] <- ExpandBeta(binF$betaMean, g2, pc)
     logPriorVal <- if (Method == "BVSSemiComb") logPriorShared(g1, nu1) else logPriorMRF(g1, g2, thetaBar, nu1, nu2)
     logPostModels[m] <- contF$logl + binF$logl + logPriorVal
+    ## posterior mode of sigma2 | Gamma.cont ~ IG(.5 * NR + aa, .5 * uSu + ba) for this model
+    sigmaModel[m] <- as.numeric((.5 * contF$uSu + ba) / (.5 * NR + aa + 1))
   }
 
   AcceptanceRateTheta <- if (Method == "BVSSemiMRF") acceptTheta / NN else NULL
@@ -382,6 +409,7 @@ MainBVSSemi <- function(
   logPost.models = logPostModels,
   beta.Cont.mode = betaContModel,
   beta.Bin.mode = betaBinModel,
+  sigma2.models = sigmaModel,
   sigma2.mean = sigma2Bar,
   U.mean = Ubar,
   sigma2.draws = sigma2Draws[seq_len(keep_i)],

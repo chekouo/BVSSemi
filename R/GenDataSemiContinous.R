@@ -12,8 +12,12 @@
 #'   semicontinuous response. If \code{FALSE} (the default), \code{X} is
 #'   simulated internally as an \eqn{n \times p} matrix of independent
 #'   standard normal entries.
-#' @param n Number of individuals (observations) to simulate.
-#' @param p Number of features in \code{X}.
+#' @param n Number of individuals (observations) to simulate. Required when
+#'   \code{Xreal = FALSE}; ignored when \code{Xreal = TRUE} (taken from
+#'   \code{nrow(X)}).
+#' @param p Number of features in \code{X}. Required when
+#'   \code{Xreal = FALSE}; ignored when \code{Xreal = TRUE} (taken from
+#'   \code{ncol(X)}).
 #' @param X An optional numeric matrix of features of dimension
 #'   \eqn{n \times p}, required when \code{Xreal = TRUE}. Ignored (and
 #'   simulated instead) when \code{Xreal = FALSE}.
@@ -36,7 +40,7 @@
 #'   strictly positive. Use this to simulate data suitable for fitting with
 #'   \code{\link{MainBVSSemi}}'s \code{log_scale = TRUE} option (its
 #'   default), which requires all nonzero response values to be positive.
-#'   Defaults to \code{FALSE}.
+#'   Defaults to \code{TRUE}.
 #'
 #' @return A list with the following components:
 #'   \describe{
@@ -64,21 +68,28 @@
 #'                              beta = 0.3, percentOverlap = "Full", seed = 1,
 #'                              log_scale = TRUE)
 #' str(Dat)
-GenDataSemiContinous <- function(Xreal = FALSE, n = n, p = p, X = NULL, sd = 1, impf = 20, beta = 1,
+GenDataSemiContinous <- function(Xreal = FALSE, n = NULL, p = NULL, X = NULL, sd = 1, impf = 20, beta = 1,
                                  percentOverlap = "Full", seed = 1, log_scale = TRUE) {
+  percentOverlap <- match.arg(percentOverlap, c("Full", "Medium", "NoOverlap"))
   set.seed(seed)
   # impf is the number of important covariates. if impf=10 then the 10 first features are important
   # percentOverlap is the percentage of overlap important features between model 1 and model 2: "Full", "Medium" and "NoOverlap"
-  Gamma1 <- rep(0, p) ### continuous model
-  Gamma2 <- rep(0, p)
-  Gamma2[1:impf] <- 1 ## binary model
   if (Xreal == T) {
     if (is.null(X)) {
       stop("Provide the matrix of the set of features")
     }
+    X <- as.matrix(X)
+    n <- nrow(X) ## n and p are taken from the supplied X
+    p <- ncol(X)
   } else {
+    if (is.null(n) || is.null(p)) {
+      stop("n and p are required when Xreal = FALSE")
+    }
     X <- matrix(rnorm(n * p), n, p)
   }
+  Gamma1 <- rep(0, p) ### continuous model
+  Gamma2 <- rep(0, p)
+  Gamma2[1:impf] <- 1 ## binary model
   X <- scale(X)
   Ystar <- X[, 1:impf] %*% c(rep(beta, impf)) + rnorm(n)
   Y <- 1 - (Ystar > 0)

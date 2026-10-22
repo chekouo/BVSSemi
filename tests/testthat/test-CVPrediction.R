@@ -54,3 +54,11 @@ test_that("ncores > 1 also works with Xcov and extra MainBVSSemi hyperparameters
   expect_s3_class(perf, "data.frame")
   expect_equal(nrow(perf), 3)
 })
+
+test_that("CVPredictBVSSemi accepts Xcov as a vector (regression test)", {
+  Dat <- GenDataSemiContinous(n = 80, p = 15, sd = 1, impf = 5, beta = 0.3,
+                               percentOverlap = "Full", seed = 1, log_scale = TRUE)
+  perf <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, Xcov = rnorm(80), K = 2, seed = 1,
+                                    nmodels = 3, mcmcsample = 60, burnin = 30))
+  expect_equal(nrow(perf), 2)
+})

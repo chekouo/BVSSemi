@@ -14,7 +14,8 @@
 #' @param pred A list returned by \code{\link{PosteriorPredict}}, containing
 #'   at least \code{p.pos.mean}, \code{ycont.mean}, \code{ycont.draws},
 #'   \code{sigma2.draws} and \code{yhat.mean} for the same subjects as
-#'   \code{Ytest}.
+#'   \code{Ytest}, and normally \code{bma$weights} (if absent, the columns
+#'   of \code{ycont.draws} are weighted equally).
 #' @param coverage_level Nominal coverage level of the posterior predictive
 #'   interval used to assess calibration of the continuous part (e.g.
 #'   \code{0.95} for a 95 percent interval). Defaults to \code{0.95}.
@@ -45,11 +46,17 @@
 #'     \item{\code{Corr_cont}}{Pearson correlation between
 #'       \code{pred$ycont.mean} and the observations among subjects with
 #'       \code{Ytest != 0}.}
-#'     \item{\code{Coverage<XX>_cont}}{Empirical coverage of the
+#'     \item{\code{Coverage<XX>_cont}}{Empirical coverage of the central
 #'       \code{coverage_level} posterior predictive interval for the
 #'       continuous part, among subjects with \code{Ytest != 0}, where
 #'       \code{<XX>} is \code{coverage_level} expressed as a percentage
-#'       (e.g. \code{Coverage95_cont}).}
+#'       (e.g. \code{Coverage95_cont}). The predictive distribution is the
+#'       BMA mixture \eqn{\sum_k w_k N(\mu_k, \sigma^2_k)} over the kept
+#'       models (\code{pred$bma$weights}, \code{pred$ycont.draws},
+#'       \code{pred$sigma2.draws}), evaluated exactly rather than by
+#'       simulation, so the result is deterministic. Each model contributes
+#'       its posterior-mode mean and a plug-in residual variance, so
+#'       uncertainty in the coefficients within a model is not included.}
 #'     \item{\code{RMSE_combined}, \code{MAE_combined}}{Root-mean-squared
 #'       and mean absolute error of \code{pred$yhat.mean} against
 #'       \code{Ytest}, over all subjects, on the original response scale.}
@@ -71,7 +78,7 @@
 #' DatTest <- GenDataSemiContinous(n = 100, p = 500, sd = 1, impf = 20,
 #'                                  beta = 0.3, percentOverlap = "Full", seed = 2,
 #'                                  log_scale = TRUE)
-#' pred <- PosteriorPredict(fit, Xnew = DatTest$X, Xcovnew = NULL)
+#' pred <- PosteriorPredict(fit, Xnew = DatTest$X, Xcovnew = NULL, nmodels = 10)
 #'
 #' perf <- EvaluatePrediction(DatTest$Y, pred)
 #' str(perf)
@@ -108,12 +115,17 @@ EvaluatePrediction <- function(Ytest, pred, coverage_level = 0.95, log_scale = T
     out$RMSE_cont <- sqrt(mean(resid^2))
     out$MAE_cont  <- mean(abs(resid))
     out$Corr_cont <- if (sd(muhat) > 0) cor(obs, muhat) else NA
+    ## The BMA posterior predictive of the continuous part is the mixture
+    ## sum_k w_k N(ycont.draws[, k], sigma2.draws[k]). obs lies inside its
+    ## central coverage_level interval iff its predictive CDF value falls in
+    ## [(1 - level) / 2, 1 - (1 - level) / 2], so the CDF is evaluated
+    ## exactly at obs (no Monte Carlo draws or interval endpoints needed).
     M <- ncol(pred$ycont.draws)
-    eps <- matrix(rnorm(sum(pos) * M), sum(pos), M)
-    predDraws <- pred$ycont.draws[pos, , drop = FALSE] + sweep(eps, 2, sqrt(pred$sigma2.draws), "*")
-    lo <- apply(predDraws, 1, quantile, probs = (1 - coverage_level) / 2)
-    hi <- apply(predDraws, 1, quantile, probs = 1 - (1 - coverage_level) / 2)
-    out[[paste0("Coverage", round(coverage_level * 100), "_cont")]] <- mean(obs >= lo & obs <= hi)
+    w <- if (is.null(pred$bma$weights)) rep(1 / M, M) else as.vector(pred$bma$weights)
+    z <- sweep(obs - pred$ycont.draws[pos, , drop = FALSE], 2, sqrt(pred$sigma2.draws), "/")
+    cdf <- as.vector(pnorm(z) %*% w)
+    alpha <- 1 - coverage_level
+    out[[paste0("Coverage", round(coverage_level * 100), "_cont")]] <- mean(cdf >= alpha / 2 & cdf <= 1 - alpha / 2)
   } else {
     out$RMSE_cont <- out$MAE_cont <- out$Corr_cont <- NA
   }
