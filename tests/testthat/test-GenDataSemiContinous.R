@@ -67,3 +67,18 @@ test_that("Xreal = TRUE uses the supplied X as-is", {
   ## X is standardized (scale()) inside the function, so compare shape/columns, not values
   expect_equal(dim(Dat$X), dim(Xin))
 })
+
+test_that("Xreal = TRUE takes n and p from X when they are not supplied (regression test)", {
+  Xin <- matrix(rnorm(30 * 8), 30, 8)
+  Dat <- GenDataSemiContinous(Xreal = TRUE, X = Xin, impf = 3, beta = 0.3, seed = 1)
+  expect_length(Dat$Y, 30)
+  expect_length(Dat$Z.cont, 8)
+})
+
+test_that("Xreal = FALSE requires n and p", {
+  expect_error(GenDataSemiContinous(impf = 2), "n and p are required")
+})
+
+test_that("an invalid percentOverlap is rejected rather than silently ignored (regression test)", {
+  expect_error(GenDataSemiContinous(n = 50, p = 20, impf = 5, percentOverlap = "full"))
+})

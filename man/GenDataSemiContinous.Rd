@@ -6,8 +6,8 @@
 \usage{
 GenDataSemiContinous(
   Xreal = FALSE,
-  n = n,
-  p = p,
+  n = NULL,
+  p = NULL,
   X = NULL,
   sd = 1,
   impf = 20,
@@ -24,9 +24,13 @@ semicontinuous response. If \code{FALSE} (the default), \code{X} is
 simulated internally as an \eqn{n \times p} matrix of independent
 standard normal entries.}
 
-\item{n}{Number of individuals (observations) to simulate.}
+\item{n}{Number of individuals (observations) to simulate. Required when
+\code{Xreal = FALSE}; ignored when \code{Xreal = TRUE} (taken from
+\code{nrow(X)}).}
 
-\item{p}{Number of features in \code{X}.}
+\item{p}{Number of features in \code{X}. Required when
+\code{Xreal = FALSE}; ignored when \code{Xreal = TRUE} (taken from
+\code{ncol(X)}).}
 
 \item{X}{An optional numeric matrix of features of dimension
 \eqn{n \times p}, required when \code{Xreal = TRUE}. Ignored (and
@@ -56,7 +60,7 @@ are exponentiated after being generated, so they are guaranteed to be
 strictly positive. Use this to simulate data suitable for fitting with
 \code{\link{MainBVSSemi}}'s \code{log_scale = TRUE} option (its
 default), which requires all nonzero response values to be positive.
-Defaults to \code{FALSE}.}
+Defaults to \code{TRUE}.}
 }
 \value{
 A list with the following components:

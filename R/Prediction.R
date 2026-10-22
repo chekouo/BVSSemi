@@ -11,8 +11,8 @@
 #' posterior-mode coefficients (\code{fit$beta.Cont.mode},
 #' \code{fit$beta.Bin.mode}, computed once per unique model as
 #' post-processing in \code{\link{MainBVSSemi}}, not from any single noisy
-#' MCMC draw) and a single shared residual variance (\code{fit$sigma2.mean}),
-#' combined by a weighted average using each kept model's normalized
+#' MCMC draw) and its posterior-mode residual variance
+#' (\code{fit$sigma2.models}), combined by a weighted average using each kept model's normalized
 #' posterior probability. \code{Xnew} and \code{Xcovnew} are standardized
 #' using the column means and standard deviations stored in \code{fit} (as
 #' computed by \code{\link{MainBVSSemi}} on the training data), so they
@@ -28,8 +28,8 @@
 #'       of unique visited models) of each model's estimated log-posterior.}
 #'     \item{\code{beta.Cont.mode}, \code{beta.Bin.mode}}{\eqn{K} x
 #'       (1 + pc + p) matrices of each model's posterior-mode coefficients.}
-#'     \item{\code{sigma2.mean}}{A single number: the posterior mean residual
-#'       variance, shared across every model.}
+#'     \item{\code{sigma2.models}}{Length-\eqn{K} vector of each model's
+#'       posterior-mode residual variance.}
 #'     \item{\code{X.center}, \code{X.scale}}{Length-p vectors of the column
 #'       means and standard deviations used to standardize \code{X} when
 #'       fitting the model, used to standardize \code{Xnew} the same way.}
@@ -47,14 +47,15 @@
 #'   (unstandardized) scale, for the new subjects, matching the
 #'   \code{Xcov} used when fitting the model. Defaults to \code{NULL}
 #'   when no such covariates were used.
-#' @param log_scale Logical. If \code{TRUE} (the default, matching the
-#'   default of \code{\link{MainBVSSemi}}), the continuous part of the
+#' @param log_scale Logical. If \code{TRUE}, the continuous part of the
 #'   model is assumed to have been fit on the log scale, and the
 #'   conditional mean on the original scale is obtained via a log-normal
 #'   bias correction, \code{exp(mu + sigma2 / 2)}. If \code{FALSE}, the
 #'   continuous linear predictor is used directly as the conditional mean.
-#'   Must match the \code{log_scale} value used when fitting \code{fit}
-#'   with \code{\link{MainBVSSemi}}.
+#'   Defaults to \code{fit$log_scale}, the value used when fitting
+#'   \code{fit} with \code{\link{MainBVSSemi}} (or \code{TRUE} if
+#'   \code{fit} does not record it); overriding it with a different value
+#'   gives predictions on the wrong scale.
 #' @param nmodels Integer, required. Bayesian model averaging is performed
 #'   over the top \code{nmodels} visited models by estimated log-posterior
 #'   (\code{fit$logPost.models}); if fewer than \code{nmodels} models were
@@ -70,9 +71,9 @@
 #'       continuous (magnitude) model linear predictor for every kept model
 #'       (unweighted; used e.g. by \code{\link{EvaluatePrediction}}'s
 #'       posterior-interval coverage check).}
-#'     \item{\code{sigma2.draws}}{The single shared \code{fit$sigma2.mean},
-#'       repeated once per kept model (length \code{nmodels}) for shape
-#'       compatibility with \code{ycont.draws}.}
+#'     \item{\code{sigma2.draws}}{Length-\code{nmodels} vector of each kept
+#'       model's residual variance (\code{fit$sigma2.models}), in the same
+#'       order as the columns of \code{ycont.draws}.}
 #'     \item{\code{yhat.mean}}{Length-n vector of the BMA-weighted predicted
 #'       outcome, \eqn{E[Y | x] = \sum_k w_k P(Y > 0 | x, model_k) E[Y | Y >
 #'       0, x, model_k]}, where \eqn{w_k} are the normalized BMA weights.}
@@ -113,16 +114,17 @@
 #' ## Posterior mean predicted outcome for each new subject
 #' str(pred$yhat.mean)
 #' }
-PosteriorPredict <- function(fit, Xnew, Xcovnew = NULL, log_scale = TRUE, nmodels) {
+PosteriorPredict <- function(fit, Xnew, Xcovnew = NULL, log_scale = fit$log_scale, nmodels) {
+  if (is.null(log_scale)) log_scale <- TRUE ## fit built without a log_scale field
   if (missing(nmodels)) {
     stop("nmodels is required: PosteriorPredict performs Bayesian model averaging over ",
          "the top nmodels visited models (see fit$logPost.models); there is no ",
          "full-MCMC-draw averaging fallback.")
   }
   if (is.null(fit$Gamma.cont.models) || is.null(fit$Gamma.bin.models) || is.null(fit$logPost.models) ||
-      is.null(fit$beta.Cont.mode) || is.null(fit$beta.Bin.mode) || is.null(fit$sigma2.mean)) {
+      is.null(fit$beta.Cont.mode) || is.null(fit$beta.Bin.mode) || is.null(fit$sigma2.models)) {
     stop("nmodels requires Gamma.cont.models/Gamma.bin.models/logPost.models/beta.Cont.mode/",
-         "beta.Bin.mode/sigma2.mean in fit; refit with the current MainBVSSemi().")
+         "beta.Bin.mode/sigma2.models in fit; refit with the current MainBVSSemi().")
   }
 
   Xnew <- as.matrix(Xnew)
@@ -153,10 +155,10 @@ PosteriorPredict <- function(fit, Xnew, Xcovnew = NULL, log_scale = TRUE, nmodel
   XX <- cbind(rep(1, n), Xcovnew, Xnew)
   etaBin  <- XX %*% t(fit$beta.Bin.mode[keep, , drop = FALSE])   # n x K
   etaCont <- XX %*% t(fit$beta.Cont.mode[keep, , drop = FALSE])  # n x K
-  pPos <- 1 - pnorm(etaBin)                                       # P(y>0 | x, model k)
-  ## A single shared residual variance across all K models (not
-  ## model-specific), repeated for shape compatibility with etaCont/pPos.
-  sigma2 <- rep(fit$sigma2.mean, K)
+  ## P(y>0 | x, model k), computed as an upper tail rather than
+  ## 1 - pnorm(etaBin), which cancels to exactly 0 once etaBin > ~8.3
+  pPos <- pnorm(etaBin, lower.tail = FALSE)
+  sigma2 <- fit$sigma2.models[keep] ## each kept model's own residual variance
 
   if (log_scale) {
     ## Work in log-space (log(weight) + log(pPos) + logCondMean) for as long
@@ -164,12 +166,12 @@ PosteriorPredict <- function(fit, Xnew, Xcovnew = NULL, log_scale = TRUE, nmodel
     ## directly: if a model's linear predictor is extreme enough that exp()
     ## would overflow to Inf, multiplying it by a same-model pPos that has
     ## underflowed to exactly 0 produces 0 * Inf = NaN, which would silently
-    ## poison yhat.mean. Staying in log-space until the final exponentiation
-    ## makes that case degenerate to 0 (a near-zero occurrence probability
-    ## wins over an unbounded magnitude) instead of NaN.
+    ## poison yhat.mean. log(pPos) is taken directly from pnorm(log.p = TRUE),
+    ## so it stays finite (no underflow) for any finite etaBin, and a tiny
+    ## occurrence probability times a huge magnitude gives its true product.
     logCondMean <- sweep(etaCont, 2, sigma2 / 2, "+")
-    logPW <- log(pPos) + logCondMean
-    logPW[is.nan(logPW)] <- -Inf ## 0 * Inf coincidence: treat as no contribution
+    logPW <- pnorm(etaBin, lower.tail = FALSE, log.p = TRUE) + logCondMean
+    logPW[is.nan(logPW)] <- -Inf ## only for infinite inputs (-Inf + Inf)
     logW <- sweep(logPW, 2, log(w), "+")
     yhat.mean <- exp(rowLogSumExp(logW)) ## weights already sum to 1
   } else {

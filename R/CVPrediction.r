@@ -72,6 +72,7 @@ CVPredictBVSSemi <- function(Y, X, Xcov = NULL, K = 5, log_scale = TRUE, seed = 
   ## closure carries no lingering reference to the caller's environment
   ## (e.g. an expression like Dat$Y) when shipped to a PSOCK worker below.
   Y <- Y; X <- X; Xcov <- Xcov; K <- K; log_scale <- log_scale; seed <- seed; nmodels <- nmodels
+  if (!is.null(Xcov)) Xcov <- as.matrix(Xcov) ## a vector Xcov becomes an n x 1 matrix
   dots <- list(...)
   set.seed(seed)
   n <- length(Y)

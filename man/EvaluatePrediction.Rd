@@ -14,7 +14,8 @@ original (unstandardized, un-logged) scale.}
 \item{pred}{A list returned by \code{\link{PosteriorPredict}}, containing
 at least \code{p.pos.mean}, \code{ycont.mean}, \code{ycont.draws},
 \code{sigma2.draws} and \code{yhat.mean} for the same subjects as
-\code{Ytest}.}
+\code{Ytest}, and normally \code{bma$weights} (if absent, the columns
+of \code{ycont.draws} are weighted equally).}
 
 \item{coverage_level}{Nominal coverage level of the posterior predictive
 interval used to assess calibration of the continuous part (e.g.
@@ -48,11 +49,17 @@ A named list of performance metrics:
     \item{\code{Corr_cont}}{Pearson correlation between
       \code{pred$ycont.mean} and the observations among subjects with
       \code{Ytest != 0}.}
-    \item{\code{Coverage<XX>_cont}}{Empirical coverage of the
+    \item{\code{Coverage<XX>_cont}}{Empirical coverage of the central
       \code{coverage_level} posterior predictive interval for the
       continuous part, among subjects with \code{Ytest != 0}, where
       \code{<XX>} is \code{coverage_level} expressed as a percentage
-      (e.g. \code{Coverage95_cont}).}
+      (e.g. \code{Coverage95_cont}). The predictive distribution is the
+      BMA mixture \eqn{\sum_k w_k N(\mu_k, \sigma^2_k)} over the kept
+      models (\code{pred$bma$weights}, \code{pred$ycont.draws},
+      \code{pred$sigma2.draws}), evaluated exactly rather than by
+      simulation, so the result is deterministic. Each model contributes
+      its posterior-mode mean and a plug-in residual variance, so
+      uncertainty in the coefficients within a model is not included.}
     \item{\code{RMSE_combined}, \code{MAE_combined}}{Root-mean-squared
       and mean absolute error of \code{pred$yhat.mean} against
       \code{Ytest}, over all subjects, on the original response scale.}
@@ -78,7 +85,7 @@ fit <- MainBVSSemi(Method = "BVSSemiMRF", Y = Dat$Y, X = Dat$X,
 DatTest <- GenDataSemiContinous(n = 100, p = 500, sd = 1, impf = 20,
                                  beta = 0.3, percentOverlap = "Full", seed = 2,
                                  log_scale = TRUE)
-pred <- PosteriorPredict(fit, Xnew = DatTest$X, Xcovnew = NULL)
+pred <- PosteriorPredict(fit, Xnew = DatTest$X, Xcovnew = NULL, nmodels = 10)
 
 perf <- EvaluatePrediction(DatTest$Y, pred)
 str(perf)

@@ -12,7 +12,7 @@ test_that("MainBVSSemi runs for all three methods and returns the documented fie
     "prob.Z.Cont", "prob.Z.Bin",
     "Gamma.cont.draws", "Gamma.bin.draws", "logPost.draws",
     "Gamma.cont.models", "Gamma.bin.models", "logPost.models",
-    "beta.Cont.mode", "beta.Bin.mode", "sigma2.mean", "U.mean",
+    "beta.Cont.mode", "beta.Bin.mode", "sigma2.models", "sigma2.mean", "U.mean",
     "sigma2.draws", "theta.draws", "AcceptanceRateTheta", "pc", "p",
     "log_scale", "X.center", "X.scale", "Xcov.center", "Xcov.scale"
   )
@@ -40,6 +40,8 @@ test_that("MainBVSSemi runs for all three methods and returns the documented fie
     expect_equal(ncol(fit$beta.Bin.mode), ncol(Dat$X) + 1)
     expect_equal(nrow(fit$beta.Cont.mode), nModels)
     expect_equal(nrow(fit$beta.Bin.mode), nModels)
+    expect_length(fit$sigma2.models, nModels)
+    expect_true(all(fit$sigma2.models > 0))
     expect_length(fit$U.mean, nrow(Dat$X))
     expect_true(all(is.finite(fit$logPost.models)))
   }
@@ -102,4 +104,30 @@ test_that("MainBVSSemi accepts forced-in covariates (Xcov)", {
   expect_length(fit$Xcov.scale, 2)
   expect_equal(ncol(fit$beta.Cont.mode), ncol(Dat$X) + 2 + 1)
   expect_equal(ncol(fit$beta.Bin.mode), ncol(Dat$X) + 2 + 1)
+})
+
+test_that("MainBVSSemi rejects an unknown Method (regression test)", {
+  Dat <- make_small_data()
+  expect_error(MainBVSSemi(Method = "MRF", Y = Dat$Y, X = Dat$X, mcmcsample = 20, burnin = 10))
+})
+
+test_that("MainBVSSemi validates mcmcsample, burnin and thin (regression test)", {
+  Dat <- make_small_data()
+  expect_error(MainBVSSemi(Y = Dat$Y, X = Dat$X, mcmcsample = 50, burnin = 60),
+               "mcmcsample must be larger than burnin")
+  expect_error(MainBVSSemi(Y = Dat$Y, X = Dat$X, mcmcsample = 53, burnin = 50, thin = 5),
+               "at least thin")
+})
+
+test_that("tau2bin only warns for BVSSemiComb when explicitly supplied", {
+  Dat <- make_small_data()
+  expect_warning(
+    quietly(MainBVSSemi(Method = "BVSSemiComb", Y = Dat$Y, X = Dat$X, tau2bin = 2,
+                         mcmcsample = 50, burnin = 20)),
+    "tau2bin is ignored"
+  )
+  expect_no_warning(
+    quietly(MainBVSSemi(Method = "BVSSemiIndep", Y = Dat$Y, X = Dat$X, tau2bin = 2,
+                         mcmcsample = 50, burnin = 20))
+  )
 })

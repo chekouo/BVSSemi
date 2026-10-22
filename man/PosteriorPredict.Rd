@@ -4,7 +4,7 @@
 \alias{PosteriorPredict}
 \title{Posterior Predictive Distribution for New Subjects via Bayesian Model Averaging}
 \usage{
-PosteriorPredict(fit, Xnew, Xcovnew = NULL, log_scale = TRUE, nmodels)
+PosteriorPredict(fit, Xnew, Xcovnew = NULL, log_scale = fit$log_scale, nmodels)
 }
 \arguments{
 \item{fit}{A list returned by \code{\link{MainBVSSemi}} containing at
@@ -17,8 +17,8 @@ least the following components:
     of unique visited models) of each model's estimated log-posterior.}
   \item{\code{beta.Cont.mode}, \code{beta.Bin.mode}}{\eqn{K} x
     (1 + pc + p) matrices of each model's posterior-mode coefficients.}
-  \item{\code{sigma2.mean}}{A single number: the posterior mean residual
-    variance, shared across every model.}
+  \item{\code{sigma2.models}}{Length-\eqn{K} vector of each model's
+    posterior-mode residual variance.}
   \item{\code{X.center}, \code{X.scale}}{Length-p vectors of the column
     means and standard deviations used to standardize \code{X} when
     fitting the model, used to standardize \code{Xnew} the same way.}
@@ -39,14 +39,15 @@ n x pc containing forced-in covariates, on their original
 \code{Xcov} used when fitting the model. Defaults to \code{NULL}
 when no such covariates were used.}
 
-\item{log_scale}{Logical. If \code{TRUE} (the default, matching the
-default of \code{\link{MainBVSSemi}}), the continuous part of the
+\item{log_scale}{Logical. If \code{TRUE}, the continuous part of the
 model is assumed to have been fit on the log scale, and the
 conditional mean on the original scale is obtained via a log-normal
 bias correction, \code{exp(mu + sigma2 / 2)}. If \code{FALSE}, the
 continuous linear predictor is used directly as the conditional mean.
-Must match the \code{log_scale} value used when fitting \code{fit}
-with \code{\link{MainBVSSemi}}.}
+Defaults to \code{fit$log_scale}, the value used when fitting
+\code{fit} with \code{\link{MainBVSSemi}} (or \code{TRUE} if
+\code{fit} does not record it); overriding it with a different value
+gives predictions on the wrong scale.}
 
 \item{nmodels}{Integer, required. Bayesian model averaging is performed
 over the top \code{nmodels} visited models by estimated log-posterior
@@ -64,9 +65,9 @@ A list with the following components:
       continuous (magnitude) model linear predictor for every kept model
       (unweighted; used e.g. by \code{\link{EvaluatePrediction}}'s
       posterior-interval coverage check).}
-    \item{\code{sigma2.draws}}{The single shared \code{fit$sigma2.mean},
-      repeated once per kept model (length \code{nmodels}) for shape
-      compatibility with \code{ycont.draws}.}
+    \item{\code{sigma2.draws}}{Length-\code{nmodels} vector of each kept
+      model's residual variance (\code{fit$sigma2.models}), in the same
+      order as the columns of \code{ycont.draws}.}
     \item{\code{yhat.mean}}{Length-n vector of the BMA-weighted predicted
       outcome, \eqn{E[Y | x] = \sum_k w_k P(Y > 0 | x, model_k) E[Y | Y >
       0, x, model_k]}, where \eqn{w_k} are the normalized BMA weights.}
@@ -89,8 +90,8 @@ models visited during MCMC with the highest estimated log-posterior
 posterior-mode coefficients (\code{fit$beta.Cont.mode},
 \code{fit$beta.Bin.mode}, computed once per unique model as
 post-processing in \code{\link{MainBVSSemi}}, not from any single noisy
-MCMC draw) and a single shared residual variance (\code{fit$sigma2.mean}),
-combined by a weighted average using each kept model's normalized
+MCMC draw) and its posterior-mode residual variance
+(\code{fit$sigma2.models}), combined by a weighted average using each kept model's normalized
 posterior probability. \code{Xnew} and \code{Xcovnew} are standardized
 using the column means and standard deviations stored in \code{fit} (as
 computed by \code{\link{MainBVSSemi}} on the training data), so they
