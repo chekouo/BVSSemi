@@ -62,3 +62,21 @@ test_that("CVPredictBVSSemi accepts Xcov as a vector (regression test)", {
                                     nmodels = 3, mcmcsample = 60, burnin = 30))
   expect_equal(nrow(perf), 2)
 })
+
+test_that("return_folds = TRUE also returns the fold assignment", {
+  Dat <- GenDataSemiContinous(n = 100, p = 20, sd = 1, impf = 5, beta = 0.3,
+                               percentOverlap = "Full", seed = 1, log_scale = TRUE)
+  K <- 3
+  perf <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = K, seed = 1, nmodels = 5,
+                                    Method = "BVSSemiMRF", mcmcsample = 150, burnin = 75))
+  out <- quietly(CVPredictBVSSemi(Y = Dat$Y, X = Dat$X, K = K, seed = 1, nmodels = 5,
+                                   return_folds = TRUE,
+                                   Method = "BVSSemiMRF", mcmcsample = 150, burnin = 75))
+
+  expect_named(out, c("perf", "folds"))
+  expect_equal(out$perf, perf) ## same results as the default data-frame return
+  expect_length(out$folds, length(Dat$Y))
+  expect_setequal(unique(out$folds), 1:K)
+  set.seed(1)
+  expect_equal(out$folds, sample(rep(1:K, length.out = length(Dat$Y))))
+})

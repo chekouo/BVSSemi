@@ -13,6 +13,7 @@ CVPredictBVSSemi(
   seed = 1,
   ncores = 1,
   nmodels,
+  return_folds = FALSE,
   ...
 )
 }
@@ -54,6 +55,10 @@ results are identical whether run sequentially or in parallel.}
 in every fold: Bayesian model averaging is performed over the top
 \code{nmodels} visited models by estimated log-posterior.}
 
+\item{return_folds}{Logical. If \code{TRUE}, also return the fold
+assignment used, so the same split can be reused (e.g. to score a
+competing method on identical folds). Defaults to \code{FALSE}.}
+
 \item{...}{Additional arguments passed on to \code{\link{MainBVSSemi}}
 for every fold (e.g. \code{Method}, \code{mcmcsample}, \code{burnin},
 \code{nu1cont}, \code{nu2bin}, etc.).}
@@ -63,7 +68,10 @@ A data frame with \code{K} rows (one per fold) and one column
   per metric returned by \code{\link{EvaluatePrediction}} (e.g.
   \code{AUC_binary}, \code{Brier_binary}, \code{RMSE_cont},
   \code{MAE_cont}, \code{Corr_cont}, a \code{Coverage<XX>_cont} column,
-  \code{RMSE_combined} and \code{MAE_combined}).
+  \code{RMSE_combined} and \code{MAE_combined}). If
+  \code{return_folds = TRUE}, a list with components \code{perf} (that
+  data frame) and \code{folds} (a length-\eqn{n} integer vector giving
+  the fold, in \code{1:K}, to which each subject was assigned).
 }
 \description{
 Runs K-fold cross-validation of the BVSSemi two-part semicontinuous

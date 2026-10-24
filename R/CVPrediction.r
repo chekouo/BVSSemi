@@ -37,6 +37,9 @@
 #' @param nmodels Integer, required, passed to \code{\link{PosteriorPredict}}
 #'   in every fold: Bayesian model averaging is performed over the top
 #'   \code{nmodels} visited models by estimated log-posterior.
+#' @param return_folds Logical. If \code{TRUE}, also return the fold
+#'   assignment used, so the same split can be reused (e.g. to score a
+#'   competing method on identical folds). Defaults to \code{FALSE}.
 #' @param ... Additional arguments passed on to \code{\link{MainBVSSemi}}
 #'   for every fold (e.g. \code{Method}, \code{mcmcsample}, \code{burnin},
 #'   \code{nu1cont}, \code{nu2bin}, etc.).
@@ -45,7 +48,10 @@
 #'   per metric returned by \code{\link{EvaluatePrediction}} (e.g.
 #'   \code{AUC_binary}, \code{Brier_binary}, \code{RMSE_cont},
 #'   \code{MAE_cont}, \code{Corr_cont}, a \code{Coverage<XX>_cont} column,
-#'   \code{RMSE_combined} and \code{MAE_combined}).
+#'   \code{RMSE_combined} and \code{MAE_combined}). If
+#'   \code{return_folds = TRUE}, a list with components \code{perf} (that
+#'   data frame) and \code{folds} (a length-\eqn{n} integer vector giving
+#'   the fold, in \code{1:K}, to which each subject was assigned).
 #'
 #' @seealso \code{\link{MainBVSSemi}}, \code{\link{PosteriorPredict}},
 #'   \code{\link{EvaluatePrediction}}
@@ -63,7 +69,8 @@
 #' colMeans(perf)
 #' }
 ## ---- K-fold cross-validated prediction driver ----
-CVPredictBVSSemi <- function(Y, X, Xcov = NULL, K = 5, log_scale = TRUE, seed = 1, ncores = 1, nmodels, ...) {
+CVPredictBVSSemi <- function(Y, X, Xcov = NULL, K = 5, log_scale = TRUE, seed = 1, ncores = 1, nmodels,
+                             return_folds = FALSE, ...) {
   if (missing(nmodels)) {
     stop("nmodels is required: it is passed to PosteriorPredict, which performs Bayesian ",
          "model averaging over the top nmodels visited models in every fold.")
@@ -100,5 +107,8 @@ CVPredictBVSSemi <- function(Y, X, Xcov = NULL, K = 5, log_scale = TRUE, seed = 
     results <- lapply(1:K, runFold)
   }
   perf <- do.call(rbind, lapply(results, as.data.frame))
+  if (return_folds) {
+    return(list(perf = perf, folds = folds))
+  }
   perf
 }
