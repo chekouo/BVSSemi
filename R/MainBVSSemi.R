@@ -138,6 +138,23 @@
 #'     \item{\code{theta.draws}}{Thinned post-burn-in posterior draws of
 #'       \code{theta} from the \code{"BVSSemiMRF"} method (otherwise a
 #'       vector of zeros, since \code{theta} is fixed at 0).}
+#'     \item{\code{PPC.bin}}{Posterior predictive check of the binary
+#'       (probit) model, a list with: \code{prop.obs}, the observed
+#'       proportion of nonzero values of \code{Y}; \code{prop.rep}, a
+#'       length-\eqn{M} vector of replicated proportions, one per retained
+#'       draw, each the mean of \eqn{y^{rep}_i \sim
+#'       \mathrm{Bernoulli}(1 - \Phi(x_i^\top \beta))} using that draw's
+#'       binary-model coefficients \eqn{\beta} (in this package's probit
+#'       coding, \eqn{\Phi(x_i^\top \beta)} is the probability of a zero);
+#'       \code{p.value}, the Bayesian p-value
+#'       \eqn{P(\bar y^{rep} \ge \bar y \mid y)}, estimated as
+#'       \code{mean(prop.rep >= prop.obs)}; and \code{p.value.two.sided},
+#'       \eqn{2 \min\{P(\bar y^{rep} \ge \bar y), P(\bar y^{rep} \le \bar
+#'       y)\}} (capped at 1). Values near 0 (or near 1 for \code{p.value})
+#'       flag that the observed proportion is extreme relative to the
+#'       model's predictive distribution. The replicates are drawn from a
+#'       separate random-number stream (seeded by \code{seed + 1}), so the
+#'       MCMC chain itself is unaffected by the check.}
 #'     \item{\code{AcceptanceRateTheta}}{MCMC acceptance rate of \code{theta}
 #'       for the \code{"BVSSemiMRF"} method, or \code{NULL} for the other
 #'       two methods (which do not sample \code{theta}).}
@@ -282,6 +299,19 @@ MainBVSSemi <- function(
   keep_i <- 0
   NR <- length(N2)
 
+  ## Posterior predictive check (PPC) of the binary model: at every retained
+  ## draw, replicate the zero/nonzero indicators from the probit model and
+  ## record the replicated proportion of nonzero values. The replicates are
+  ## drawn from a separate RNG stream so that adding the PPC leaves the MCMC
+  ## chain itself unchanged for a given seed.
+  XXbin <- cbind(rep(1, n), Xcov, X)
+  propNonzeroObs <- mean(Y != 0)
+  propNonzeroRep <- rep(0, n_thin)
+  mainRNG <- get(".Random.seed", envir = globalenv())
+  set.seed(seed + 1L)
+  ppcRNG <- get(".Random.seed", envir = globalenv())
+  assign(".Random.seed", mainRNG, envir = globalenv())
+
   for (s in 1:NN) {
     # set.seed(s)
     if ((Method == "BVSSemiIndep") || (Method == "BVSSemiMRF")) {
@@ -343,6 +373,14 @@ MainBVSSemi <- function(
         GammaContDraws[keep_i, ] <- Gamma1
         GammaBinDraws[keep_i, ] <- Gamma2
         logPostDraws[keep_i] <- logPostTotal
+        ## PPC replicate: the latent U < 0 codes a nonzero response (see
+        ## YLatent2), so P(Y != 0 | x, beta) = 1 - Phi(x' beta)
+        pNonzero <- pnorm(as.vector(XXbin %*% betaBin), lower.tail = FALSE)
+        mainRNG <- get(".Random.seed", envir = globalenv())
+        assign(".Random.seed", ppcRNG, envir = globalenv())
+        propNonzeroRep[keep_i] <- mean(rbinom(n, size = 1, prob = pNonzero))
+        ppcRNG <- get(".Random.seed", envir = globalenv())
+        assign(".Random.seed", mainRNG, envir = globalenv())
       }
     }
 
@@ -358,6 +396,11 @@ MainBVSSemi <- function(
   GammaContDraws <- GammaContDraws[seq_len(keep_i), , drop = FALSE]
   GammaBinDraws <- GammaBinDraws[seq_len(keep_i), , drop = FALSE]
   logPostDraws <- logPostDraws[seq_len(keep_i)]
+  propNonzeroRep <- propNonzeroRep[seq_len(keep_i)]
+  ppcPval <- mean(propNonzeroRep >= propNonzeroObs)
+  PPCBin <- list(prop.obs = propNonzeroObs, prop.rep = propNonzeroRep,
+                 p.value = ppcPval,
+                 p.value.two.sided = min(1, 2 * min(ppcPval, mean(propNonzeroRep <= propNonzeroObs))))
   thetaBar <- mean(thetaDraws[seq_len(keep_i)]) ## representative theta for the
                                                  ## log-prior of each model below
   sigma2Bar <- mean(sigma2Draws[seq_len(keep_i)]) ## single shared posterior
@@ -414,6 +457,7 @@ MainBVSSemi <- function(
   U.mean = Ubar,
   sigma2.draws = sigma2Draws[seq_len(keep_i)],
   theta.draws = thetaDraws[seq_len(keep_i)],
+  PPC.bin = PPCBin,
   AcceptanceRateTheta = AcceptanceRateTheta, pc = pc, p = p,
   log_scale = log_scale, X.center = X.center, X.scale = X.scale,
   Xcov.center = Xcov.center, Xcov.scale = Xcov.scale))

@@ -166,6 +166,23 @@ A list with the following components:
     \item{\code{theta.draws}}{Thinned post-burn-in posterior draws of
       \code{theta} from the \code{"BVSSemiMRF"} method (otherwise a
       vector of zeros, since \code{theta} is fixed at 0).}
+    \item{\code{PPC.bin}}{Posterior predictive check of the binary
+      (probit) model, a list with: \code{prop.obs}, the observed
+      proportion of nonzero values of \code{Y}; \code{prop.rep}, a
+      length-\eqn{M} vector of replicated proportions, one per retained
+      draw, each the mean of \eqn{y^{rep}_i \sim
+      \mathrm{Bernoulli}(1 - \Phi(x_i^\top \beta))} using that draw's
+      binary-model coefficients \eqn{\beta} (in this package's probit
+      coding, \eqn{\Phi(x_i^\top \beta)} is the probability of a zero);
+      \code{p.value}, the Bayesian p-value
+      \eqn{P(\bar y^{rep} \ge \bar y \mid y)}, estimated as
+      \code{mean(prop.rep >= prop.obs)}; and \code{p.value.two.sided},
+      \eqn{2 \min\{P(\bar y^{rep} \ge \bar y), P(\bar y^{rep} \le \bar
+      y)\}} (capped at 1). Values near 0 (or near 1 for \code{p.value})
+      flag that the observed proportion is extreme relative to the
+      model's predictive distribution. The replicates are drawn from a
+      separate random-number stream (seeded by \code{seed + 1}), so the
+      MCMC chain itself is unaffected by the check.}
     \item{\code{AcceptanceRateTheta}}{MCMC acceptance rate of \code{theta}
       for the \code{"BVSSemiMRF"} method, or \code{NULL} for the other
       two methods (which do not sample \code{theta}).}
