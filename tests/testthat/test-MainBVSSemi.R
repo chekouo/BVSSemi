@@ -13,7 +13,7 @@ test_that("MainBVSSemi runs for all three methods and returns the documented fie
     "Gamma.cont.draws", "Gamma.bin.draws", "logPost.draws",
     "Gamma.cont.models", "Gamma.bin.models", "logPost.models",
     "beta.Cont.mode", "beta.Bin.mode", "sigma2.models", "sigma2.mean", "U.mean",
-    "sigma2.draws", "theta.draws", "AcceptanceRateTheta", "pc", "p",
+    "sigma2.draws", "theta.draws", "PPC.bin", "AcceptanceRateTheta", "pc", "p",
     "log_scale", "X.center", "X.scale", "Xcov.center", "Xcov.scale"
   )
   ## Gam1Mean/Gam2Mean are accumulated by summing Gamma / n_keep over many
@@ -130,4 +130,21 @@ test_that("tau2bin only warns for BVSSemiComb when explicitly supplied", {
     quietly(MainBVSSemi(Method = "BVSSemiIndep", Y = Dat$Y, X = Dat$X, tau2bin = 2,
                          mcmcsample = 50, burnin = 20))
   )
+})
+
+test_that("PPC.bin reports a valid binary-model posterior predictive check", {
+  Dat <- make_small_data()
+  for (meth in c("BVSSemiMRF", "BVSSemiIndep", "BVSSemiComb")) {
+    fit <- quietly(MainBVSSemi(Method = meth, Y = Dat$Y, X = Dat$X, seed = 1,
+                                mcmcsample = 200, burnin = 100, thin = 5))
+    ppc <- fit$PPC.bin
+    expect_equal(ppc$prop.obs, mean(Dat$Y != 0))
+    expect_length(ppc$prop.rep, nrow(fit$Gamma.bin.draws))
+    expect_true(all(ppc$prop.rep >= 0 & ppc$prop.rep <= 1))
+    expect_equal(ppc$p.value, mean(ppc$prop.rep >= ppc$prop.obs))
+    expect_true(ppc$p.value.two.sided >= 0 && ppc$p.value.two.sided <= 1)
+    ## a reasonably specified model should not put the observed
+    ## proportion far out in the tails of its own predictive distribution
+    expect_gt(ppc$p.value.two.sided, 0)
+  }
 })
