@@ -177,10 +177,15 @@
 #'     \item{\code{y.cont}}{Length-\eqn{n_2} vector of the nonzero responses
 #'       on the scale of the continuous fit (\code{log(Y[Y != 0])} when
 #'       \code{log_scale = TRUE}, \code{Y[Y != 0]} otherwise).}
+#'     \item{\code{index.cont}}{Length-\eqn{n_2} vector of the positions in
+#'       \code{Y} of the nonzero responses, i.e. \code{which(Y != 0)}, in
+#'       the order of \code{y.cont} and of the columns of
+#'       \code{fitted.cont.draws}.}
 #'     \item{\code{fitted.cont.draws}}{\eqn{M \times n_2} matrix of the
 #'       continuous-model fitted values \eqn{X\beta^{(s)}} for the nonzero
 #'       subjects, one row per retained draw, using the same \eqn{\beta^{(s)}}
-#'       drawn for \code{PPC.cont}. Used by \code{\link{PPCHomoscedasticity}}.}
+#'       drawn for \code{PPC.cont}. Used by \code{\link{PPCHomoscedasticity}} and
+#'       \code{\link{PPCIndividual}}.}
 #'     \item{\code{AcceptanceRateTheta}}{MCMC acceptance rate of \code{theta}
 #'       for the \code{"BVSSemiMRF"} method, or \code{NULL} for the other
 #'       two methods (which do not sample \code{theta}).}
@@ -517,6 +522,7 @@ MainBVSSemi <- function(
   PPC.bin = PPCBin,
   PPC.cont = PPCCont,
   y.cont = y2,
+  index.cont = N2,
   fitted.cont.draws = fittedContDraws,
   AcceptanceRateTheta = AcceptanceRateTheta, pc = pc, p = p,
   log_scale = log_scale, X.center = X.center, X.scale = X.scale,
