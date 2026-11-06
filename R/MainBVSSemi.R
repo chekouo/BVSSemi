@@ -155,6 +155,25 @@
 #'       model's predictive distribution. The replicates are drawn from a
 #'       separate random-number stream (seeded by \code{seed + 1}), so the
 #'       MCMC chain itself is unaffected by the check.}
+#'     \item{\code{PPC.cont}}{Posterior predictive check of the continuous
+#'       model, a list with: \code{mean.obs}, the sample mean of the
+#'       nonzero responses on the scale of the fit (\code{mean(log(Y[Y !=
+#'       0]))} when \code{log_scale = TRUE}, \code{mean(Y[Y != 0])}
+#'       otherwise); \code{mean.rep}, a length-\eqn{M} vector of replicated
+#'       sample means, one per retained draw, each the mean of
+#'       \eqn{y^{rep}_i \sim N(x_i^\top \beta, \sigma^2)} over the nonzero
+#'       subjects, where \eqn{\sigma^2} is that draw's residual variance and
+#'       \eqn{\beta} is drawn from its conditional posterior
+#'       \eqn{\beta \mid \sigma^2, \gamma, y} given that draw's continuous
+#'       inclusion indicators \eqn{\gamma}; \code{p.value}, the Bayesian
+#'       p-value \eqn{P(\bar y^{rep} \ge \bar y \mid y)}, estimated as
+#'       \code{mean(mean.rep >= mean.obs)}; and \code{p.value.two.sided},
+#'       defined as for \code{PPC.bin}. The same check for the sample
+#'       median, computed from the same replicated datasets, is given by
+#'       \code{median.obs}, \code{median.rep}, \code{p.value.median}
+#'       (\code{mean(median.rep >= median.obs)}) and
+#'       \code{p.value.median.two.sided}. Drawn from the same separate
+#'       random-number stream as \code{PPC.bin}.}
 #'     \item{\code{AcceptanceRateTheta}}{MCMC acceptance rate of \code{theta}
 #'       for the \code{"BVSSemiMRF"} method, or \code{NULL} for the other
 #'       two methods (which do not sample \code{theta}).}
@@ -299,14 +318,24 @@ MainBVSSemi <- function(
   keep_i <- 0
   NR <- length(N2)
 
-  ## Posterior predictive check (PPC) of the binary model: at every retained
-  ## draw, replicate the zero/nonzero indicators from the probit model and
-  ## record the replicated proportion of nonzero values. The replicates are
-  ## drawn from a separate RNG stream so that adding the PPC leaves the MCMC
-  ## chain itself unchanged for a given seed.
+  ## Posterior predictive checks (PPC). At every retained draw:
+  ##  - binary model: replicate the zero/nonzero indicators from the probit
+  ##    model and record the replicated proportion of nonzero values;
+  ##  - continuous model: draw betaCont | sigma2, Gamma1, y2 (betaCont is
+  ##    integrated out during sampling, so it is drawn here only for the
+  ##    PPC), replicate the nonzero responses y2rep ~ N(X betaCont, sigma2)
+  ##    on the scale of the fit (log scale when log_scale = TRUE), and
+  ##    record their sample mean and median.
+  ## The replicates are drawn from a separate RNG stream so that adding the
+  ## PPC leaves the MCMC chain itself unchanged for a given seed.
   XXbin <- cbind(rep(1, n), Xcov, X)
+  XXcont <- XXbin[N2, , drop = FALSE]
   propNonzeroObs <- mean(Y != 0)
   propNonzeroRep <- rep(0, n_thin)
+  meanContObs <- mean(y2)
+  meanContRep <- rep(0, n_thin)
+  medianContObs <- stats::median(y2)
+  medianContRep <- rep(0, n_thin)
   mainRNG <- get(".Random.seed", envir = globalenv())
   set.seed(seed + 1L)
   ppcRNG <- get(".Random.seed", envir = globalenv())
@@ -324,6 +353,7 @@ MainBVSSemi <- function(
       )
       Gamma1 <- Gamma1F$GammaM1
       sigma2 <- Sigma2(NR, Gamma1F$uSu, aa, ba)   ## sigma2 | Gamma1 (conjugate IG)
+      betaMeanCont <- Gamma1F$betaMean; cholMatCont <- Gamma1F$cholMat ## for the PPC only
       ### Sample Gamma2 binary model
       Gamma2F <- SampleGamma(
         GammaM1 = Gamma2, y = U, X = X, Xcov = Xcov, pc = pc, sigma2 = 1, tau2 = tau22,
@@ -341,6 +371,7 @@ MainBVSSemi <- function(
       betaBin <- GammaF$betaBin ## still needed to update U below; not stored anywhere
       Gamma1 <- GammaF$Gamma
       sigma2 <- Sigma2(NR, GammaF$uSu, aa, ba)
+      betaMeanCont <- GammaF$betaMeanCont; cholMatCont <- GammaF$cholMatCont ## for the PPC only
       Gamma2 <- Gamma1
       contLogl <- GammaF$loglCont
       binLogl <- GammaF$loglBin
@@ -379,6 +410,11 @@ MainBVSSemi <- function(
         mainRNG <- get(".Random.seed", envir = globalenv())
         assign(".Random.seed", ppcRNG, envir = globalenv())
         propNonzeroRep[keep_i] <- mean(rbinom(n, size = 1, prob = pNonzero))
+        betaCont <- DrawBeta(betaMeanCont, cholMatCont, sigma2, Gamma1, pc)
+        muCont <- as.vector(XXcont %*% betaCont)
+        y2rep <- rnorm(NR, mean = muCont, sd = sqrt(sigma2))
+        meanContRep[keep_i] <- mean(y2rep)
+        medianContRep[keep_i] <- stats::median(y2rep)
         ppcRNG <- get(".Random.seed", envir = globalenv())
         assign(".Random.seed", mainRNG, envir = globalenv())
       }
@@ -401,6 +437,17 @@ MainBVSSemi <- function(
   PPCBin <- list(prop.obs = propNonzeroObs, prop.rep = propNonzeroRep,
                  p.value = ppcPval,
                  p.value.two.sided = min(1, 2 * min(ppcPval, mean(propNonzeroRep <= propNonzeroObs))))
+  meanContRep <- meanContRep[seq_len(keep_i)]
+  medianContRep <- medianContRep[seq_len(keep_i)]
+  ppcPvalCont <- mean(meanContRep >= meanContObs)
+  ppcPvalMedian <- mean(medianContRep >= medianContObs)
+  PPCCont <- list(mean.obs = meanContObs, mean.rep = meanContRep,
+                  p.value = ppcPvalCont,
+                  p.value.two.sided = min(1, 2 * min(ppcPvalCont, mean(meanContRep <= meanContObs))),
+                  median.obs = medianContObs, median.rep = medianContRep,
+                  p.value.median = ppcPvalMedian,
+                  p.value.median.two.sided = min(1, 2 * min(ppcPvalMedian,
+                                                            mean(medianContRep <= medianContObs))))
   thetaBar <- mean(thetaDraws[seq_len(keep_i)]) ## representative theta for the
                                                  ## log-prior of each model below
   sigma2Bar <- mean(sigma2Draws[seq_len(keep_i)]) ## single shared posterior
@@ -458,6 +505,7 @@ MainBVSSemi <- function(
   sigma2.draws = sigma2Draws[seq_len(keep_i)],
   theta.draws = thetaDraws[seq_len(keep_i)],
   PPC.bin = PPCBin,
+  PPC.cont = PPCCont,
   AcceptanceRateTheta = AcceptanceRateTheta, pc = pc, p = p,
   log_scale = log_scale, X.center = X.center, X.scale = X.scale,
   Xcov.center = Xcov.center, Xcov.scale = Xcov.scale))
