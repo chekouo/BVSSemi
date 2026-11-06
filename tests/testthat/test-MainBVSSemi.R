@@ -13,7 +13,7 @@ test_that("MainBVSSemi runs for all three methods and returns the documented fie
     "Gamma.cont.draws", "Gamma.bin.draws", "logPost.draws",
     "Gamma.cont.models", "Gamma.bin.models", "logPost.models",
     "beta.Cont.mode", "beta.Bin.mode", "sigma2.models", "sigma2.mean", "U.mean",
-    "sigma2.draws", "theta.draws", "PPC.bin", "AcceptanceRateTheta", "pc", "p",
+    "sigma2.draws", "theta.draws", "PPC.bin", "PPC.cont", "AcceptanceRateTheta", "pc", "p",
     "log_scale", "X.center", "X.scale", "Xcov.center", "Xcov.scale"
   )
   ## Gam1Mean/Gam2Mean are accumulated by summing Gamma / n_keep over many
@@ -147,4 +147,28 @@ test_that("PPC.bin reports a valid binary-model posterior predictive check", {
     ## proportion far out in the tails of its own predictive distribution
     expect_gt(ppc$p.value.two.sided, 0)
   }
+})
+
+test_that("PPC.cont reports a valid continuous-model posterior predictive check", {
+  Dat <- make_small_data()
+  for (meth in c("BVSSemiMRF", "BVSSemiIndep", "BVSSemiComb")) {
+    fit <- quietly(MainBVSSemi(Method = meth, Y = Dat$Y, X = Dat$X, seed = 1,
+                                mcmcsample = 200, burnin = 100, thin = 5))
+    ppc <- fit$PPC.cont
+    expect_equal(ppc$mean.obs, mean(log(Dat$Y[Dat$Y != 0])))
+    expect_length(ppc$mean.rep, nrow(fit$Gamma.cont.draws))
+    expect_true(all(is.finite(ppc$mean.rep)))
+    expect_equal(ppc$p.value, mean(ppc$mean.rep >= ppc$mean.obs))
+    expect_true(ppc$p.value.two.sided > 0 && ppc$p.value.two.sided <= 1)
+    expect_equal(ppc$median.obs, median(log(Dat$Y[Dat$Y != 0])))
+    expect_length(ppc$median.rep, nrow(fit$Gamma.cont.draws))
+    expect_true(all(is.finite(ppc$median.rep)))
+    expect_equal(ppc$p.value.median, mean(ppc$median.rep >= ppc$median.obs))
+    expect_true(ppc$p.value.median.two.sided >= 0 && ppc$p.value.median.two.sided <= 1)
+  }
+  ## log_scale = FALSE checks the mean of the raw nonzero values
+  fit <- quietly(MainBVSSemi(Method = "BVSSemiIndep", Y = Dat$Y, X = Dat$X, seed = 1,
+                              mcmcsample = 200, burnin = 100, thin = 5, log_scale = FALSE))
+  expect_equal(fit$PPC.cont$mean.obs, mean(Dat$Y[Dat$Y != 0]))
+  expect_equal(fit$PPC.cont$median.obs, median(Dat$Y[Dat$Y != 0]))
 })
