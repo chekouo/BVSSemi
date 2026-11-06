@@ -183,6 +183,25 @@ A list with the following components:
       model's predictive distribution. The replicates are drawn from a
       separate random-number stream (seeded by \code{seed + 1}), so the
       MCMC chain itself is unaffected by the check.}
+    \item{\code{PPC.cont}}{Posterior predictive check of the continuous
+      model, a list with: \code{mean.obs}, the sample mean of the
+      nonzero responses on the scale of the fit (\code{mean(log(Y[Y !=
+      0]))} when \code{log_scale = TRUE}, \code{mean(Y[Y != 0])}
+      otherwise); \code{mean.rep}, a length-\eqn{M} vector of replicated
+      sample means, one per retained draw, each the mean of
+      \eqn{y^{rep}_i \sim N(x_i^\top \beta, \sigma^2)} over the nonzero
+      subjects, where \eqn{\sigma^2} is that draw's residual variance and
+      \eqn{\beta} is drawn from its conditional posterior
+      \eqn{\beta \mid \sigma^2, \gamma, y} given that draw's continuous
+      inclusion indicators \eqn{\gamma}; \code{p.value}, the Bayesian
+      p-value \eqn{P(\bar y^{rep} \ge \bar y \mid y)}, estimated as
+      \code{mean(mean.rep >= mean.obs)}; and \code{p.value.two.sided},
+      defined as for \code{PPC.bin}. The same check for the sample
+      median, computed from the same replicated datasets, is given by
+      \code{median.obs}, \code{median.rep}, \code{p.value.median}
+      (\code{mean(median.rep >= median.obs)}) and
+      \code{p.value.median.two.sided}. Drawn from the same separate
+      random-number stream as \code{PPC.bin}.}
     \item{\code{AcceptanceRateTheta}}{MCMC acceptance rate of \code{theta}
       for the \code{"BVSSemiMRF"} method, or \code{NULL} for the other
       two methods (which do not sample \code{theta}).}
