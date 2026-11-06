@@ -13,7 +13,7 @@ test_that("MainBVSSemi runs for all three methods and returns the documented fie
     "Gamma.cont.draws", "Gamma.bin.draws", "logPost.draws",
     "Gamma.cont.models", "Gamma.bin.models", "logPost.models",
     "beta.Cont.mode", "beta.Bin.mode", "sigma2.models", "sigma2.mean", "U.mean",
-    "sigma2.draws", "theta.draws", "PPC.bin", "PPC.cont", "AcceptanceRateTheta", "pc", "p",
+    "sigma2.draws", "theta.draws", "PPC.bin", "PPC.cont", "y.cont", "fitted.cont.draws", "AcceptanceRateTheta", "pc", "p",
     "log_scale", "X.center", "X.scale", "Xcov.center", "Xcov.scale"
   )
   ## Gam1Mean/Gam2Mean are accumulated by summing Gamma / n_keep over many

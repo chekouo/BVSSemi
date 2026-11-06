@@ -174,6 +174,13 @@
 #'       (\code{mean(median.rep >= median.obs)}) and
 #'       \code{p.value.median.two.sided}. Drawn from the same separate
 #'       random-number stream as \code{PPC.bin}.}
+#'     \item{\code{y.cont}}{Length-\eqn{n_2} vector of the nonzero responses
+#'       on the scale of the continuous fit (\code{log(Y[Y != 0])} when
+#'       \code{log_scale = TRUE}, \code{Y[Y != 0]} otherwise).}
+#'     \item{\code{fitted.cont.draws}}{\eqn{M \times n_2} matrix of the
+#'       continuous-model fitted values \eqn{X\beta^{(s)}} for the nonzero
+#'       subjects, one row per retained draw, using the same \eqn{\beta^{(s)}}
+#'       drawn for \code{PPC.cont}. Used by \code{\link{PPCHomoscedasticity}}.}
 #'     \item{\code{AcceptanceRateTheta}}{MCMC acceptance rate of \code{theta}
 #'       for the \code{"BVSSemiMRF"} method, or \code{NULL} for the other
 #'       two methods (which do not sample \code{theta}).}
@@ -334,6 +341,7 @@ MainBVSSemi <- function(
   propNonzeroRep <- rep(0, n_thin)
   meanContObs <- mean(y2)
   meanContRep <- rep(0, n_thin)
+  fittedContDraws <- matrix(0, n_thin, NR) ## X betaCont per retained draw
   medianContObs <- stats::median(y2)
   medianContRep <- rep(0, n_thin)
   mainRNG <- get(".Random.seed", envir = globalenv())
@@ -412,6 +420,7 @@ MainBVSSemi <- function(
         propNonzeroRep[keep_i] <- mean(rbinom(n, size = 1, prob = pNonzero))
         betaCont <- DrawBeta(betaMeanCont, cholMatCont, sigma2, Gamma1, pc)
         muCont <- as.vector(XXcont %*% betaCont)
+        fittedContDraws[keep_i, ] <- muCont
         y2rep <- rnorm(NR, mean = muCont, sd = sqrt(sigma2))
         meanContRep[keep_i] <- mean(y2rep)
         medianContRep[keep_i] <- stats::median(y2rep)
@@ -439,6 +448,7 @@ MainBVSSemi <- function(
                  p.value.two.sided = min(1, 2 * min(ppcPval, mean(propNonzeroRep <= propNonzeroObs))))
   meanContRep <- meanContRep[seq_len(keep_i)]
   medianContRep <- medianContRep[seq_len(keep_i)]
+  fittedContDraws <- fittedContDraws[seq_len(keep_i), , drop = FALSE]
   ppcPvalCont <- mean(meanContRep >= meanContObs)
   ppcPvalMedian <- mean(medianContRep >= medianContObs)
   PPCCont <- list(mean.obs = meanContObs, mean.rep = meanContRep,
@@ -506,6 +516,8 @@ MainBVSSemi <- function(
   theta.draws = thetaDraws[seq_len(keep_i)],
   PPC.bin = PPCBin,
   PPC.cont = PPCCont,
+  y.cont = y2,
+  fitted.cont.draws = fittedContDraws,
   AcceptanceRateTheta = AcceptanceRateTheta, pc = pc, p = p,
   log_scale = log_scale, X.center = X.center, X.scale = X.scale,
   Xcov.center = Xcov.center, Xcov.scale = Xcov.scale))
