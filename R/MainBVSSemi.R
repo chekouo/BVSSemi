@@ -50,10 +50,11 @@
 #'   the continuous model. For \code{Method = "BVSSemiComb"}, the continuous
 #'   and binary models share a single inclusion indicator, and
 #'   \code{nu1cont} alone controls its prior log-odds (\code{nu2bin} is
-#'   ignored in that case).
+#'   ignored in that case). More negative values give sparser models. See
+#'   the section \emph{Choosing nu1cont and nu2bin} for practical guidance.
 #' @param nu2bin Log-odds of the prior probability of feature inclusion in
 #'   the binary model. Ignored when \code{Method = "BVSSemiComb"} (see
-#'   \code{nu1cont}).
+#'   \code{nu1cont}). See the section \emph{Choosing nu1cont and nu2bin}.
 #' @param varpropTheta Variance of the Metropolis-Hastings proposal
 #'   distribution for \code{theta}. It should be tuned to give an
 #'   acceptance rate of roughly 20-60 percent. Defaults to \code{.25}.
@@ -76,6 +77,90 @@
 #'   nonzero value of \code{Y} to be strictly positive; an error is raised
 #'   otherwise. Pass the same value to \code{log_scale} in
 #'   \code{\link{PosteriorPredict}} when predicting from the fitted model.
+#'
+#' @section Choosing nu1cont and nu2bin:
+#' For each feature \eqn{j}, the prior on the inclusion indicators
+#' \eqn{(\gamma_{1j}, \gamma_{2j})} of the continuous and binary models is
+#' \deqn{P(\gamma_{1j}, \gamma_{2j}) \propto \exp(\nu_1 \gamma_{1j} +
+#'   \nu_2 \gamma_{2j} + \theta \gamma_{1j} \gamma_{2j}),}{P(gamma1j,
+#'   gamma2j) proportional to exp(nu1*gamma1j + nu2*gamma2j +
+#'   theta*gamma1j*gamma2j),}
+#' independently across features, with \eqn{\nu_1 = } \code{nu1cont} and
+#' \eqn{\nu_2 = } \code{nu2bin}. For \code{"BVSSemiIndep"} (\eqn{\theta = 0})
+#' this reduces to independent Bernoulli priors with inclusion probabilities
+#' \eqn{\pi_1 = 1/(1 + e^{-\nu_1})} and \eqn{\pi_2 = 1/(1 + e^{-\nu_2})};
+#' for \code{"BVSSemiComb"} the single shared indicator has prior inclusion
+#' probability \eqn{1/(1 + e^{-\nu_1})}.
+#'
+#' \strong{Elicit from the expected model size.} The most practical way to
+#' set these values is to state how many of the \eqn{p} candidate features
+#' you expect, a priori, to be relevant in each model, say \eqn{q_1}
+#' (continuous) and \eqn{q_2} (binary). Then set
+#' \deqn{\nu_k = \log\left(\frac{q_k}{p - q_k}\right), \quad k = 1, 2,}{nu_k
+#'   = log(q_k / (p - q_k)), k = 1, 2,}
+#' so that the prior expected number of selected features is \eqn{q_k}.
+#' For example, with \eqn{p = 500} and \eqn{q_1 = 10}, \code{nu1cont =
+#' log(10/490)} \eqn{\approx -3.9}{~ -3.9}. In R: \code{nu1cont = qlogis(q1/p)}.
+#' Useful reference values of the implied prior inclusion probability
+#' \eqn{1/(1 + e^{-\nu})} are:
+#' \tabular{rrr}{
+#'   \eqn{\nu} \tab prior prob. \tab expected size when \eqn{p = 100} / \eqn{p = 1000} \cr
+#'   -1 \tab 0.269  \tab 26.9 / 269 \cr
+#'   -2 \tab 0.119  \tab 11.9 / 119 \cr
+#'   -3 \tab 0.047  \tab 4.7 / 47 \cr
+#'   -4 \tab 0.018  \tab 1.8 / 18 \cr
+#'   -5 \tab 0.0067 \tab 0.67 / 6.7 \cr
+#'   -6 \tab 0.0025 \tab 0.25 / 2.5
+#' }
+#' Because a fixed \eqn{\nu} implies an expected model size that grows
+#' linearly with \eqn{p}, the value should be made more negative as the
+#' number of candidate features increases (roughly \eqn{\nu \approx
+#' \log(q/p)}{nu ~ log(q/p)} for \eqn{q \ll p}{q much smaller than p}); this provides a multiplicity adjustment
+#' and protects against selecting many false positives in high dimensions.
+#' The default \code{-3} (prior probability \eqn{\approx 0.05}{~ 0.05}) is a
+#' reasonable sparse choice for moderate \eqn{p} (tens to a few hundred
+#' features).
+#'
+#' \strong{Different values for the two models.} \code{nu1cont} and
+#' \code{nu2bin} need not be equal. If subject-matter knowledge suggests,
+#' for example, that fewer features drive whether the response is zero than
+#' drive its magnitude, choose \code{nu2bin < nu1cont}. Note also that the
+#' binary (probit) model typically carries less information per observation
+#' than the continuous model, so a slightly sparser \code{nu2bin} can help
+#' avoid spurious selections there.
+#'
+#' \strong{Interaction with theta (\code{"BVSSemiMRF"}).} Under the MRF prior,
+#' \eqn{\theta > 0} raises the conditional prior log-odds of inclusion in one
+#' model when the feature is included in the other:
+#' \eqn{P(\gamma_{1j} = 1 \mid \gamma_{2j} = 1) = 1/(1 + e^{-(\nu_1 +
+#' \theta)})}{P(gamma1j = 1 | gamma2j = 1) = 1/(1 + exp(-(nu1 + theta)))},
+#' whereas \eqn{P(\gamma_{1j} = 1 \mid \gamma_{2j} = 0) =
+#' 1/(1 + e^{-\nu_1})}{P(gamma1j = 1 | gamma2j = 0) = 1/(1 + exp(-nu1))}. The marginal prior inclusion probability is
+#' therefore somewhat larger than \eqn{1/(1 + e^{-\nu_1})}, namely
+#' \deqn{P(\gamma_{1j} = 1) = \frac{e^{\nu_1} + e^{\nu_1 + \nu_2 + \theta}}{1 +
+#'   e^{\nu_1} + e^{\nu_2} + e^{\nu_1 + \nu_2 + \theta}}.}{P(gamma1j = 1) =
+#'   (exp(nu1) + exp(nu1 + nu2 + theta)) / (1 + exp(nu1) + exp(nu2) +
+#'   exp(nu1 + nu2 + theta)).}
+#' With very negative \eqn{\nu}'s this inflation is small (e.g. \eqn{\nu_1 =
+#' \nu_2 = -3}, \eqn{\theta = 1} gives 0.051 instead of 0.047), but for
+#' large \eqn{\theta} (controlled by \code{atheta}/\code{btheta}, prior mean
+#' \code{atheta/btheta}) it can become noticeable; in that case choose the
+#' \eqn{\nu}'s slightly more negative than the expected-size rule suggests.
+#' Conversely, \eqn{\nu}'s that are too close to 0 make it hard for
+#' \eqn{\theta} to express borrowing, since most features are then included
+#' in both models a priori.
+#'
+#' \strong{Sensitivity and data-driven choice.} Posterior inclusion
+#' probabilities (\code{prob.Z.Cont}, \code{prob.Z.Bin}) can be sensitive to
+#' these values, especially when \eqn{n} is small relative to \eqn{p}. In
+#' practice we recommend (i) refitting over a small grid, e.g.
+#' \code{nu} in \code{c(-2, -3, -4, -5)}, and checking whether the ranking
+#' of top features and the selected set (e.g. inclusion probability
+#' \eqn{> 0.5}) are stable; and (ii) if prediction is the main goal,
+#' choosing the values that minimize cross-validated prediction error via
+#' \code{\link{CVPredictBVSSemi}}. Values close to 0 (e.g. \eqn{\nu > -1}{nu > -1})
+#' are rarely advisable: they imply that a large fraction of features are
+#' relevant, which slows mixing and inflates false positives.
 #'
 #' @return A list with the following components:
 #'   \describe{
